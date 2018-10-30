@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Mon Oct 29 22:27:13 2018 Zhijin Li
+## Last update Tue Oct 30 20:24:36 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -64,7 +64,7 @@ def load_img(img_path, target_size, normalize=True):
   TF model prediction.
 
   """
-  img = cv2.imread('./cat.jpg', cv2.IMREAD_UNCHANGED)
+  img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
   if target_size is not None:
     img = cv2.resize(img, dsize=(target_size, target_size))
   if normalize:

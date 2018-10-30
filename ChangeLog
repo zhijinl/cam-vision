@@ -1,3 +1,7 @@
+2018-10-30  Zhijin Li  <jonathan.zj.lee@gmail.com>
+
+	* utils/utils.py: Fix image path param in load_img.
+
 2018-10-29  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* README.md: Initialize repo.
