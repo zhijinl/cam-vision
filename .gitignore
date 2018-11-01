@@ -1,4 +1,7 @@
 
+# Temporary folder
+tmp
+
 # Python compiled
 __pycache__
 
