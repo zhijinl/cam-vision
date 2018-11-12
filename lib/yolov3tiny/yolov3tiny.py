@@ -28,74 +28,15 @@
 
 ## ---------------------------------------------------------------------------
 ##
-## File: loader.py for Cam-Vision
+## File: yolov3.py for Cam-Vision
 ##
 ## Created by Zhijin Li
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
-## Started on  Sun Oct 28 15:09:53 2018 Zhijin Li
-## Last update Sat Nov 10 23:15:09 2018 Zhijin Li
+## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
+## Last update Sat Nov 10 23:25:55 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
-import os
-import cv2
-import time
-import numpy as np
-from lib.utils import utils as utils
-from lib.utils import capture as cap
-from lib.mobilenet import mobilenet as net
-
-
-WIDTH_MULTIPLIER = 1
-TOP_CLASSES      = 5
-TARGET_SIZE      = None
-POOLING_TYPE     = 'global_avg'
-
-VERBOSE          = False
-SKIP_FRAMES      = 60
-IMAGENET_TXT     =  './data/imagenet/imagenet_dict.npy'
-
-
-if __name__ == '__main__':
-
-  network = net.load_mobilenet_anysize(
-    WIDTH_MULTIPLIER, POOLING_TYPE)
-
-  stream = cap.FastVideoStream(0).read_frames()
-
-  fps = 0
-  counter = 0
-  top_scrs = [0.0]*TOP_CLASSES
-  top_labs = ['none']*TOP_CLASSES
-  label_dict = np.load(IMAGENET_TXT).item()
-
-  while True:
-
-    __start = time.time()
-
-    frame = stream.get_frame()
-    frame = cap.trim_frame_square(frame, .55, 0.5625)
-
-    if (counter % SKIP_FRAMES) == 0:
-      top_labs, top_scrs = utils.classify_frame(
-        network,
-        frame,
-        TARGET_SIZE,
-        TOP_CLASSES,
-        label_dict,
-        verbose=VERBOSE)
-
-    cap.print_fps(frame, fps)
-    frame = cap.make_pred_frame(frame, top_labs, top_scrs)
-
-    cv2.imshow('Cam Classifier', frame)
-
-    if cv2.waitKey(1) == ord('q'):
-      stream.stop()
-      break
-
-    fps = 1.0/(time.time()-__start)
-    counter += 1
-
-  cv2.destroyAllWindows()
+import torch
+import torchvision

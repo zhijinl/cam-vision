@@ -1,3 +1,8 @@
+2018-11-12  Zhijin Li  <jonathan.zj.lee@gmail.com>
+
+	* lib/utils/utils.py: Restructure repo. Add YOLO detection project
+	entries.
+
 2018-10-30  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* utils/utils.py: Fix image path param in load_img.

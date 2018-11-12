@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Tue Oct 30 22:47:15 2018 Zhijin Li
+## Last update Mon Nov 12 23:23:24 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -42,8 +42,52 @@ import os
 import numpy as np
 
 
+def read_txt_as_strs(txt_path, strip=' ', cmnt=None):
+  """
+
+  Read a txt file. Each line will be treated
+  as a string.
+
+  Empty lines will be skipped. Spaces will be
+  automatically stripped.
+
+  Parameters
+  ----------
+  txt_path: str
+  Path to the txt file.
+
+  strip: bool
+  Character(s) stripped from the beginning and
+  the end of each line. Defaults to whitespace.
+  Use `None` to indicate no-op.
+
+  cmnt: str
+  Comment character. If a line (after stripping,
+  if strip character(s) is not `None`) starts with
+  `cmnt` will not be read.
+
+  Returns
+  ----------
+  list
+  A list of strings, where each string represents
+  a line in the txt file.
+
+  """
+  __lines = []
+  with open(txt_path, 'r') as __f:
+    for __l in __f.readlines():
+      if strip is not None:
+        __l = __l.strip().strip(strip)
+      if not __l: continue
+      if cmnt is not None:
+        if __l.startswith(cmnt): continue
+      __lines.append(__l.strip('\n'))
+  return __lines
+
+
 def load_img(img_path, target_size, normalize=True):
   """
+
   Load image for TF prediction mode.
 
   Parameters
@@ -74,6 +118,7 @@ def load_img(img_path, target_size, normalize=True):
 
 def make_predict_inp(img, target_size, normalize=True):
   """
+
   Transform an image for TF prediction mode.
 
   Parameters
@@ -103,6 +148,7 @@ def make_predict_inp(img, target_size, normalize=True):
 
 def predict_top(model, img, top_classes, label_dict):
   """
+
   Run prediction on input image and get
   prediction scores and class indices for
   `top_classes` classes.
@@ -236,3 +282,129 @@ def classify_frame(
         top_labs[__c][:min(len(top_labs[__c]),20)],
         top_scrs[__c]))
   return (top_labs, top_scrs)
+
+
+class YOLO():
+  """
+
+  Class representing Darknet config file for YOLO
+  models.
+
+  """
+
+
+  def __init__(self, cfg_path):
+    """
+
+    Constructor
+
+    Parameters
+    ----------
+    cfg_path: str
+    Path to the Darknet config file.
+
+    """
+    self.cfg = self.__parse_darknet_cfg(cfg_path)
+    self.yolo_name_dict  = {
+      'conv2d': {
+        'n_kernels'  : 'filters',
+        'kernel_size': 'size',
+        'stride'     : 'stride',
+        'padding'    : 'pad'
+      }
+    }
+
+
+  def __parse_darknet_cfg(self, cfg_path):
+    """
+
+    Parse Darknet config file for YOLO models.
+
+    Parameters
+    ----------
+    cfg_path: str
+    Path to the Darknet config file.
+
+    Returns
+    ----------
+    list
+    A list where each entry is a dictionary with key
+    equal to the layer name and value equal to a
+    dictionary for configurations of layer params.
+
+    For example, an entry representing a convolution
+    layer might be:
+
+    ```
+    {
+      'convolutiona_1':
+      {
+        'batch_normalize': '1',
+        'filters': '16',
+        'size': '3',
+        ...
+      }
+    }
+    ```
+
+    """
+    __lines = read_txt_as_strs(cfg_path, cmnt='#')
+    return self.__parse_cfg_sections(__lines)
+
+
+  def __parse_cfg_sections(self, cfg_lines):
+    """
+
+    Parse different config file sections.
+
+    Parameters
+    ----------
+    cfg_lines: list
+    A list of parsed config file lines.
+
+    Returns
+    ----------
+    dict
+    A dictionary where eahc key refers to
+    a section of the config file (such as
+    'convolution') and the corresponding
+    value is a dict representing the section
+    configuration.
+
+    """
+    __sections = []
+    __curr_sect = {}
+    __sect_name = None
+    for __l in cfg_lines:
+      if __l.startswith('['):
+        if __curr_sect: __sections.append(__curr_sect)
+        __curr_sect = {}
+        __sect_name = __l.lstrip('[').rstrip(']')
+        __curr_sect[__sect_name] = {}
+      else:
+        __k, __v = __l.split('=')
+        __curr_sect[__sect_name][__k] = __v
+    return __sections
+
+
+  def __get_layer_names(self):
+    """
+
+    Get a list of layer names.
+
+    Returns
+    ----------
+    list
+    A list with layer names.
+
+    """
+    pass
+
+
+  def __get_detections(self):
+    """
+
+    Get config for detections.
+
+    """
+    pass
