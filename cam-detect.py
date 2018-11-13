@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:52:48 2018 Zhijin Li
-## Last update Mon Nov 12 23:22:58 2018 Zhijin Li
+## Last update Tue Nov 13 21:49:04 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -42,9 +42,9 @@ import os
 import cv2
 import time
 import numpy as np
+from lib import yolov3tiny as net
 from lib.utils import utils as utils
 from lib.utils import capture as cap
-from lib.yolov3tiny import yolov3tiny as net
 
 
 WIDTH_MULTIPLIER = 1
@@ -58,4 +58,4 @@ DARKNET_CFG      =  './data/model/yolov3tiny/yolov3-tiny.cfg'
 
 
 if __name__ == '__main__':
-  cfg = utils.YOLO(DARKNET_CFG)
+  cfg = net.YOLO(DARKNET_CFG)

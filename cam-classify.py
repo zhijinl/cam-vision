@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 15:09:53 2018 Zhijin Li
-## Last update Sat Nov 10 23:15:09 2018 Zhijin Li
+## Last update Tue Nov 13 21:31:24 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -42,9 +42,9 @@ import os
 import cv2
 import time
 import numpy as np
+from lib import mobilenet as net
 from lib.utils import utils as utils
 from lib.utils import capture as cap
-from lib.mobilenet import mobilenet as net
 
 
 WIDTH_MULTIPLIER = 1
