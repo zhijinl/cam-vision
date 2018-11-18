@@ -34,13 +34,128 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Tue Nov 13 22:12:49 2018 Zhijin Li
+## Last update Sun Nov 18 17:55:15 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
 import torch
 import torchvision
+import collections
 from .utils import utils as utils
+
+
+class YOLORoute(torch.nn.Module):
+  """
+
+  The YOLO route layer.
+
+  A route layer can take either one or
+  two layer index parameters. When a single
+  layer index is given, it forwards the
+  feature map indexed by that layer. When
+  two parameters are given, it outputs the
+  concatenated feature maps (in depth
+  direction)of the two layers.
+
+  """
+
+  def __init__(self, curr_indx, lay_lst, features):
+    """
+
+    Constructor.
+
+    Parameters
+    ----------
+    curr_indx: int
+    Current layer index.
+
+    layer_lst: list
+    List of layer indices for routing.
+
+    features: dict
+    A dictionary where keys are layer indices
+    and values are output feature maps
+    of the layer.
+
+    """
+    self.feats = features
+    self.cindx = curr_indx
+    self.rindx = self.__get_route_indices(lay_lst)
+    self.out_channels = self.__get_out_channels()
+
+
+  def __get_route_indices(self, lay_lst):
+    """
+
+    Get the list of indices for routing.
+
+    Parameters
+    ----------
+    layer_lst: list
+    List of layer indices for routing.
+
+    Returns
+    ----------
+    list
+    List of size 1 or 2, representing the
+    indices of the layers for routing.
+
+    """
+    if (len(lay_lst) != 1 and len(lay_lst) != 2):
+      raise Exception(
+        'layer index list must have length 1 or 2.')
+
+    return [elem if elem >= 0 else self.cindx+elem
+            for elem in lay_lst]
+
+
+  def __get_out_channels(self):
+    """
+
+    Get the number of output channels.
+
+    Returns
+    ----------
+    int
+    The number of output channels.
+
+    """
+    return np.sum(
+      [self.feats[indx].shape[1] for indx in self.rindx])
+
+
+  def forward(self):
+    """
+
+    Forard pass of the route layer.
+
+    Returns
+    ----------
+    torch.tensor
+    The output tensor.
+
+    """
+    if len(self.rindx) == 1:
+      return self.feats[self.rindx[0]]
+    elif len(self.rindx) == 2:
+      return torch.cat(
+        (self.feats[self.rindx[0]],
+         self.feats[self.rindx[1]]),
+        dim=1)
+
+
+class YOLODetect(torch.nn.Module):
+  """
+
+  The YOLO detection lqyer.
+
+  """
+  def __init__(self, anchors):
+    super(YOLODetect, self).__init_()
+    self.anchors = anchors
+
+  def forward(self, inp):
+    pass
 
 
 class YOLO():
@@ -50,7 +165,6 @@ class YOLO():
   Darknet config file.
 
   """
-
 
   def __init__(self, cfg_path):
     """
@@ -64,7 +178,9 @@ class YOLO():
 
     """
     self.cfg = self.__parse_darknet_cfg(cfg_path)
-    print(self.cfg)
+    import pprint
+    pp = pprint.PrettyPrinter()
+    pp.pprint(self.cfg)
 
 
   @property
@@ -80,6 +196,19 @@ class YOLO():
       'ksize'  : 'size',
       'stride' : 'stride',
       'padding': 'pad'
+    }
+
+
+  @property
+  def dkn_route(self):
+    """
+
+    Name dictionary for parameters of Darknet
+    route layer.
+
+    """
+    return {
+      'layers': 'layers'
     }
 
 
@@ -111,6 +240,20 @@ class YOLO():
 
 
   @property
+  def dkn_detect(self):
+    """
+
+    Name dictionary for parameters of Darknet
+    yolo detection layer.
+
+    """
+    return {
+      'anchors' : 'anchors',
+      'n_cls' : 'classes'
+    }
+
+
+  @property
   def dkn_layers(self):
     """
 
@@ -136,7 +279,7 @@ class YOLO():
 
     """
     return {
-      self.dnk_layers['conv2d']  : self.__make_convolution_block,
+      self.dnk_layers['conv2d']  : self.__make_conv_block,
       self.dnk_layers['up']      : self.__make_upsample,
       self.dnk_layers['skip']    : self.__make_route,
       self.dnk_layers['maxpool'] : self.__make_maxpool,
@@ -194,34 +337,42 @@ class YOLO():
 
     Returns
     ----------
-    dict
-    A dictionary where eahc key refers to
-    a section of the config file (such as
-    'convolution') and the corresponding
-    value is a dict representing the section
-    configuration.
+    list(dict)
+    A list of two dictionaries.
+    - The first dict contains the network's
+      configuration for training and inference.
+    - The second dict is ordered. Each key refers to
+      a section of the config file (such as
+      'convolution') and the corresponding
+      value is a dict representing the section
+      configuration.
 
     """
-    __secs = {}
+    __secs = [{}, collections.OrderedDict()]
     __sec_name = None
     __sec_count = {}
+    __switch = 0
     for __l in cfg_lines:
       if __l.startswith('['):
         __sec_name = __l.lstrip('[').rstrip(']')
         if __sec_name in self.dkn_layers.values():
+          __switch = 1
           if __sec_name not in __sec_count:
             __sec_count[__sec_name] = 0
           __sec_count[__sec_name] += 1
           __sec_name = '_'.join(
             (__sec_name, str(__sec_count[__sec_name]-1)))
-        __secs[__sec_name] = {}
+        else:
+          __switch = 0
+        __secs[__switch][__sec_name] = {}
       else:
         __k, __v = __l.split('=')
-        __secs[__sec_name][__k] = __v
+        __secs[__switch][__sec_name][
+          __k.strip()] = __v.strip()
     return __secs
 
 
-  def __make_convolution_block(self, conv_dict, in_ch):
+  def __make_conv_block(self, conv_dict, in_ch):
     """
 
     Create a pytorch 2D convolutional block
@@ -283,7 +434,8 @@ class YOLO():
 
     """
     if act_name == 'leaky':
-      return torch.nn.LeakyReLU()
+      return torch.nn.LeakyReLU(
+        negative_slope=0.1, inplace=False)
     else:
       raise Exception(
         'unknown activation: {}'.format(act_name))
@@ -333,11 +485,55 @@ class YOLO():
 
     """
     return torch.nn.Upsample(
+      mode='bilinear',
       scale_factor=float(up_dict[self.dkn_up['factor']]))
 
 
-  def __make_detection(self):
-    pass
+  def __make_route(self, route_dict):
+    """
+
+    Create route layer from Darknet config
+    dict.
+
+    Parameters
+    ----------
+    route_dict: dict
+    Dictionary with route layer parametrization.
+
+    Returns
+    ----------
+    YOLORoute
+    A route layer object.
+
+    """
+
+
+
+  def __make_detection(self, detect_dict):
+    """
+
+    Create a pytorch YOLO detection layer
+    from Darknet config.
+
+    Parameters
+    ----------
+    detect_dict: dict
+    Dictionary representing Detection
+    layer parametrization parsed from Darknet
+    config file.
+
+    Returns
+    ----------
+    YOLODetect
+    A pytorch YOLODetect layer.
+
+    """
+    __all = [int(elem) for elem in detect_dict[
+      self.dkn_detect['anchors']].split(',')]
+    __msk = [int(elem) for elem in detect_dict[
+      self.dkn_detect['mask']].split(',')]
+    __ach = [(__all[2*elem], __all[2*elem+1]) for elem in __msk]
+    return YOLODetect(__ach)
 
 
   def __make_yolo(self):
@@ -351,8 +547,12 @@ class YOLO():
     YOLO model as a pytorch ModuleList.
 
     """
-    for __sec in self.cfg:
-      pass
+    __yolo = torch.nn.ModuleList()
+    for __lay, __par in self.cfg[1].items():
+      __name = __lay[:str.find(__lay, '_')]
+      __maker = self.dkn_layer_makers[__name]
+      __yolo.append(__maker(__par))
+    return __yolo
 
 
   def __get_layer_names(self):
