@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Sun Nov 18 17:55:15 2018 Zhijin Li
+## Last update Mon Nov 19 22:22:53 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -72,10 +72,9 @@ class YOLORoute(torch.nn.Module):
     layer_lst: list
     List of layer indices for routing.
 
-    features: dict
-    A dictionary where keys are layer indices
-    and values are output feature maps
-    of the layer.
+    features: list
+    A list of YOLO output feature maps
+    in order.
 
     """
     self.feats = features
@@ -178,6 +177,7 @@ class YOLO():
 
     """
     self.cfg = self.__parse_darknet_cfg(cfg_path)
+    self.features = []
     import pprint
     pp = pprint.PrettyPrinter()
     pp.pprint(self.cfg)
@@ -489,7 +489,7 @@ class YOLO():
       scale_factor=float(up_dict[self.dkn_up['factor']]))
 
 
-  def __make_route(self, route_dict):
+  def __make_route(self, curr_indx, route_dict):
     """
 
     Create route layer from Darknet config
@@ -497,6 +497,9 @@ class YOLO():
 
     Parameters
     ----------
+    curr_indx: int
+    Current layer index.
+
     route_dict: dict
     Dictionary with route layer parametrization.
 
@@ -506,7 +509,10 @@ class YOLO():
     A route layer object.
 
     """
-
+    __lay_lst = [
+      int(elem) for elem in
+      route_dict[self.dkn_route['layers']].split(',')]
+    return YOLORoute(curr_indx, __lay_lst, self.features)
 
 
   def __make_detection(self, detect_dict):
@@ -547,11 +553,26 @@ class YOLO():
     YOLO model as a pytorch ModuleList.
 
     """
+    __block = None
+    __inch = self.nch
     __yolo = torch.nn.ModuleList()
-    for __lay, __par in self.cfg[1].items():
-      __name = __lay[:str.find(__lay, '_')]
-      __maker = self.dkn_layer_makers[__name]
-      __yolo.append(__maker(__par))
+    for __indx, (__tag, __par) in enumerate(self.cfg[1].items()):
+      __name = __tag[:str.find(__tag, '_')]
+      if __name.startswith(dkn_layers['conv2d']):
+        __lay = self.__make_conv_block(__par, __inch)
+        __inch = __lay.out_channels
+      elif __name.startswith(dkn_layers['up']):
+        __lay = self.__make_upsample(__par)
+      elif __name.startswith(dkn_layers['skip']):
+        __lay = self.__make_route(__indx, __par)
+        __inch = __lay.out_channels
+      elif __name.startswith(dkn_layers['maxpool']):
+        __lay = self.__make_maxpool(__par)
+      elif __name.startswith(dkn_layers['detect']):
+        __lay = self.__make_detection(__par)
+      else:
+        raise Exception('unrecognized layer {}.'.format(__tag))
+      __yolo.append(__lay)
     return __yolo
 
 
