@@ -1,5 +1,7 @@
 2018-11-19  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* LICENSE (met): Update license.
+
 	* lib/yolov3tiny.py: Implement YOLO model main loop.
 
 2018-11-18  Zhijin Li  <jonathan.zj.lee@gmail.com>
