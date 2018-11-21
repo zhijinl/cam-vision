@@ -34,13 +34,14 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Mon Nov 19 22:22:53 2018 Zhijin Li
+## Last update Wed Nov 21 22:21:02 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
 import torch
 import torchvision
 import collections
+import numpy as np
 from .utils import utils as utils
 
 
@@ -80,6 +81,7 @@ class YOLORoute(torch.nn.Module):
     self.feats = features
     self.cindx = curr_indx
     self.rindx = self.__get_route_indices(lay_lst)
+    print(self.rindx)
     self.out_channels = self.__get_out_channels()
 
 
@@ -150,14 +152,14 @@ class YOLODetect(torch.nn.Module):
 
   """
   def __init__(self, anchors):
-    super(YOLODetect, self).__init_()
+    super(YOLODetect, self).__init__()
     self.anchors = anchors
 
   def forward(self, inp):
     pass
 
 
-class YOLO():
+class YOLO(torch.nn.Module):
   """
 
   Class representing YOLO models constructed from
@@ -165,7 +167,7 @@ class YOLO():
 
   """
 
-  def __init__(self, cfg_path):
+  def __init__(self, cfg_path, nch):
     """
 
     Constructor
@@ -175,12 +177,18 @@ class YOLO():
     cfg_path: str
     Path to the Darknet config file.
 
+    nch: int
+    Number of channels in input image.
+
     """
+    super(YOLO, self).__init__()
     self.cfg = self.__parse_darknet_cfg(cfg_path)
+    self.nch = nch
     self.features = []
     import pprint
     pp = pprint.PrettyPrinter()
     pp.pprint(self.cfg)
+    self.model = self.__make_yolo()
 
 
   @property
@@ -221,7 +229,7 @@ class YOLO():
 
     """
     return {
-      'ksize' : 'kernel_size',
+      'ksize' : 'size',
       'stride': 'stride'
     }
 
@@ -249,7 +257,8 @@ class YOLO():
     """
     return {
       'anchors' : 'anchors',
-      'n_cls' : 'classes'
+      'n_cls'   : 'classes',
+      'mask'    : 'mask'
     }
 
 
@@ -266,24 +275,6 @@ class YOLO():
       'skip'    : 'route',
       'maxpool' : 'maxpool',
       'detect'  : 'yolo'
-    }
-
-
-  @property
-  def dkn_layer_makers(self):
-    """
-
-    Name dictionary for factory functions
-    creating pytorch layers from corresponding
-    darknet counterparts.
-
-    """
-    return {
-      self.dnk_layers['conv2d']  : self.__make_conv_block,
-      self.dnk_layers['up']      : self.__make_upsample,
-      self.dnk_layers['skip']    : self.__make_route,
-      self.dnk_layers['maxpool'] : self.__make_maxpool,
-      self.dnk_layers['detect']  : self.__make_detection,
     }
 
 
@@ -394,9 +385,11 @@ class YOLO():
 
     Returns
     ----------
-    torch.nn.Sequential
-    A pytorch 2D convolution block as a Sequential
-    container.
+    tuple
+    A tuple with the first element equal to the
+    number of output channels from the conv layer
+    and the second element representing a pytorch
+    2D convolution block as a Sequential container.
 
     """
     __l = [torch.nn.Conv2d(
@@ -408,11 +401,11 @@ class YOLO():
     if (('batch_normalize' in conv_dict) and
         conv_dict['batch_normalize']):
       __l.append(torch.nn.BatchNorm2d(
-        num_features=__l.out_channels))
-    if (('activation' in conv_dict) and
-        conv_dict['activation'] != 'linear'):
-      __l.append(self.__make_activation())
-    return torch.nn.Sequential(*__l)
+        num_features=__l[0].out_channels))
+    __act = conv_dict['activation']
+    if (('activation' in conv_dict) and __act != 'linear'):
+      __l.append(self.__make_activation(__act))
+    return (__l[0].out_channels, torch.nn.Sequential(*__l))
 
 
   def __make_activation(self, act_name):
@@ -461,8 +454,8 @@ class YOLO():
 
     """
     return torch.nn.MaxPool2d(
-      kernel_size=int(self.dkn_pool['ksize']),
-      stride=int(self.dkn_pool['stride']))
+      kernel_size=int(pool_dict[self.dkn_pool['ksize']]),
+      stride=int(pool_dict[self.dkn_pool['stride']]))
 
 
   def __make_upsample(self, up_dict):
@@ -558,17 +551,16 @@ class YOLO():
     __yolo = torch.nn.ModuleList()
     for __indx, (__tag, __par) in enumerate(self.cfg[1].items()):
       __name = __tag[:str.find(__tag, '_')]
-      if __name.startswith(dkn_layers['conv2d']):
-        __lay = self.__make_conv_block(__par, __inch)
-        __inch = __lay.out_channels
-      elif __name.startswith(dkn_layers['up']):
+      if __name.startswith(self.dkn_layers['conv2d']):
+        __inch, __lay = self.__make_conv_block(__par, __inch)
+      elif __name.startswith(self.dkn_layers['up']):
         __lay = self.__make_upsample(__par)
-      elif __name.startswith(dkn_layers['skip']):
+      elif __name.startswith(self.dkn_layers['skip']):
         __lay = self.__make_route(__indx, __par)
         __inch = __lay.out_channels
-      elif __name.startswith(dkn_layers['maxpool']):
+      elif __name.startswith(self.dkn_layers['maxpool']):
         __lay = self.__make_maxpool(__par)
-      elif __name.startswith(dkn_layers['detect']):
+      elif __name.startswith(self.dkn_layers['detect']):
         __lay = self.__make_detection(__par)
       else:
         raise Exception('unrecognized layer {}.'.format(__tag))

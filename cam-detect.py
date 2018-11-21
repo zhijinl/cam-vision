@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:52:48 2018 Zhijin Li
-## Last update Tue Nov 13 21:49:04 2018 Zhijin Li
+## Last update Wed Nov 21 22:08:54 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -47,6 +47,8 @@ from lib.utils import utils as utils
 from lib.utils import capture as cap
 
 
+N_CHANNELS = 3
+
 WIDTH_MULTIPLIER = 1
 TOP_CLASSES      = 5
 TARGET_SIZE      = None
@@ -58,4 +60,4 @@ DARKNET_CFG      =  './data/model/yolov3tiny/yolov3-tiny.cfg'
 
 
 if __name__ == '__main__':
-  cfg = net.YOLO(DARKNET_CFG)
+  cfg = net.YOLO(DARKNET_CFG, N_CHANNELS)
