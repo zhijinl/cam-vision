@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Sun Nov 25 18:16:23 2018 Zhijin Li
+## Last update Sun Nov 25 22:57:57 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -70,7 +70,7 @@ class YOLORoute(torch.nn.Module):
     curr_indx: int
     Current layer index.
 
-    layer_lst: list
+    lay_lst: list
     List of layer indices for routing.
 
     """
@@ -86,7 +86,7 @@ class YOLORoute(torch.nn.Module):
 
     Parameters
     ----------
-    layer_lst: list
+    lay_lst: list
     List of layer indices for routing.
 
     Returns
@@ -157,12 +157,50 @@ class YOLODetect(torch.nn.Module):
   The YOLO detection lqyer.
 
   """
-  def __init__(self, anchors):
+  def __init__(self, anchors, classes):
+    """
+
+    Constructor.
+
+    Parameters
+    ----------
+    anchors: list(tuple)
+    List of anchor boxes to be used for
+    YOLO detection. Each anchor box is
+    a size-2 tuple, representing height
+    and width in number of pixels with
+    respect to the original input image.
+
+    classes: int
+    Number of classes.
+
+    """
     super(YOLODetect, self).__init__()
     self.anchors = anchors
+    self.classes = classes
 
-  def forward(self, inp):
-    pass
+
+  def forward(self, out, img_size):
+    """
+
+    Forward pass of the detection layer.
+
+    Parameters
+    ----------
+    out: torch.tensor
+    The output feature map from the previous
+    layer.
+
+    img_size: torch.tensor
+    The (height x width) of the original input
+    image.
+
+    """
+    __ratio = out.shape[-2:]/img_size
+    __pred = out.view(
+      out.shape[0],len(self.anchors),self.classes+5,-1)
+    __pred[:,:,:2,:] = torch.sigmoid(__pred[:,:,:2,:])
+    __pred[:,:,4,:] = torch.sigmoid(__pred[:,:,4,:])
 
 
 class YOLO(torch.nn.Module):
@@ -538,7 +576,8 @@ class YOLO(torch.nn.Module):
     __msk = [int(elem) for elem in detect_dict[
       self.dkn_detect['mask']].split(',')]
     __ach = [(__all[2*elem], __all[2*elem+1]) for elem in __msk]
-    return YOLODetect(__ach)
+    __cls = int(detect_dict[self.dkn_detect['classes']])
+    return YOLODetect(__ach, __cls)
 
 
   def __make_yolo(self):
