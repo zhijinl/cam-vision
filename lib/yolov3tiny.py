@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Wed Nov 21 22:21:02 2018 Zhijin Li
+## Last update Sun Nov 25 18:16:23 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -56,11 +56,11 @@ class YOLORoute(torch.nn.Module):
   feature map indexed by that layer. When
   two parameters are given, it outputs the
   concatenated feature maps (in depth
-  direction)of the two layers.
+  direction) of the two layers.
 
   """
 
-  def __init__(self, curr_indx, lay_lst, features):
+  def __init__(self, curr_indx, lay_lst):
     """
 
     Constructor.
@@ -73,16 +73,10 @@ class YOLORoute(torch.nn.Module):
     layer_lst: list
     List of layer indices for routing.
 
-    features: list
-    A list of YOLO output feature maps
-    in order.
-
     """
-    self.feats = features
+    super(YOLORoute, self).__init__()
     self.cindx = curr_indx
     self.rindx = self.__get_route_indices(lay_lst)
-    print(self.rindx)
-    self.out_channels = self.__get_out_channels()
 
 
   def __get_route_indices(self, lay_lst):
@@ -110,10 +104,16 @@ class YOLORoute(torch.nn.Module):
             for elem in lay_lst]
 
 
-  def __get_out_channels(self):
+  def out_channels(self, out_channels_lst):
     """
 
     Get the number of output channels.
+
+    Parameters
+    ----------
+    out_channels_lst: list
+    A list keeping track of the number of output
+    features from each YOLO layer.
 
     Returns
     ----------
@@ -122,13 +122,19 @@ class YOLORoute(torch.nn.Module):
 
     """
     return np.sum(
-      [self.feats[indx].shape[1] for indx in self.rindx])
+      [out_channels_lst[indx] for indx in self.rindx])
 
 
-  def forward(self):
+  def forward(self, feature_dict):
     """
 
     Forard pass of the route layer.
+
+    Parameters
+    ----------
+    feature_dict: dict
+    Dictionary where keys are routed layer indices
+    and values are corresponding YOLO feature maps.
 
     Returns
     ----------
@@ -137,11 +143,11 @@ class YOLORoute(torch.nn.Module):
 
     """
     if len(self.rindx) == 1:
-      return self.feats[self.rindx[0]]
+      return feature_dict[self.rindx[0]]
     elif len(self.rindx) == 2:
       return torch.cat(
-        (self.feats[self.rindx[0]],
-         self.feats[self.rindx[1]]),
+        (feature_dict[self.rindx[0]],
+         feature_dict[self.rindx[1]]),
         dim=1)
 
 
@@ -183,12 +189,13 @@ class YOLO(torch.nn.Module):
     """
     super(YOLO, self).__init__()
     self.cfg = self.__parse_darknet_cfg(cfg_path)
-    self.nch = nch
-    self.features = []
+    self.inp_channels = nch
+    self.out_chns_lst = []
+    self.feature_dict = {}
+    self.model = self.__make_yolo()
     import pprint
     pp = pprint.PrettyPrinter()
-    pp.pprint(self.cfg)
-    self.model = self.__make_yolo()
+    pp.pprint(self.model)
 
 
   @property
@@ -311,8 +318,7 @@ class YOLO(torch.nn.Module):
     ```
 
     """
-    __lines = utils.read_txt_as_strs(
-      cfg_path, cmnt='#')
+    __lines = utils.read_txt_as_strs(cfg_path, cmnt='#')
     return self.__parse_cfg_sections(__lines)
 
 
@@ -505,7 +511,7 @@ class YOLO(torch.nn.Module):
     __lay_lst = [
       int(elem) for elem in
       route_dict[self.dkn_route['layers']].split(',')]
-    return YOLORoute(curr_indx, __lay_lst, self.features)
+    return YOLORoute(curr_indx, __lay_lst)
 
 
   def __make_detection(self, detect_dict):
@@ -547,45 +553,23 @@ class YOLO(torch.nn.Module):
 
     """
     __block = None
-    __inch = self.nch
+    __nchs = self.inp_channels
     __yolo = torch.nn.ModuleList()
     for __indx, (__tag, __par) in enumerate(self.cfg[1].items()):
       __name = __tag[:str.find(__tag, '_')]
       if __name.startswith(self.dkn_layers['conv2d']):
-        __inch, __lay = self.__make_conv_block(__par, __inch)
+        __nchs, __lay = self.__make_conv_block(__par, __nchs)
       elif __name.startswith(self.dkn_layers['up']):
         __lay = self.__make_upsample(__par)
       elif __name.startswith(self.dkn_layers['skip']):
         __lay = self.__make_route(__indx, __par)
-        __inch = __lay.out_channels
+        __nchs = __lay.out_channels(self.out_chns_lst)
       elif __name.startswith(self.dkn_layers['maxpool']):
         __lay = self.__make_maxpool(__par)
       elif __name.startswith(self.dkn_layers['detect']):
         __lay = self.__make_detection(__par)
       else:
         raise Exception('unrecognized layer {}.'.format(__tag))
+      self.out_chns_lst.append(__nchs)
       __yolo.append(__lay)
     return __yolo
-
-
-  def __get_layer_names(self):
-    """
-
-    Get a list of layer names.
-
-    Returns
-    ----------
-    list
-    A list with layer names.
-
-    """
-    pass
-
-
-  def __get_detections(self):
-    """
-
-    Get config for detections.
-
-    """
-    pass
