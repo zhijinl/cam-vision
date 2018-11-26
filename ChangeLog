@@ -1,3 +1,7 @@
+2018-11-26  Zhijin Li  <jonathan.zj.lee@gmail.com>
+
+	* lib/yolov3tiny.py: Implement detection layer transform.
+
 2018-11-25  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* lib/yolov3tiny.py: Fix routing layers.

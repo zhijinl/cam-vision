@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Sun Nov 25 22:57:57 2018 Zhijin Li
+## Last update Mon Nov 26 22:20:13 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -196,11 +196,20 @@ class YOLODetect(torch.nn.Module):
     image.
 
     """
-    __ratio = out.shape[-2:]/img_size
+    __ratio = img_size/out.shape[-2:]
     __pred = out.view(
       out.shape[0],len(self.anchors),self.classes+5,-1)
-    __pred[:,:,:2,:] = torch.sigmoid(__pred[:,:,:2,:])
-    __pred[:,:,4,:] = torch.sigmoid(__pred[:,:,4,:])
+    __pred[:,:,4,:].sigmoid_()  # obj score
+    __pred[:,:,:2,:].sigmoid_() # bbox center
+    __x, __y = np.meshgrid(range(out.shape[2]), range(out.shape[3]))
+    __pred[:,:,0,:] += __x.view(1, -1)
+    __pred[:,:,1,:] += __y.view(1, -1)
+    __pred[:,:,0,:] *= __ratio[0]
+    __pred[:,:,1,:] *= __ratio[1]
+    __pred[:,:,2:4,:].exp_() # bbox center
+    __pred[:,:,2:4,:] *= torch.FloatTensor(
+      self.anchors).unsqueeze(-1).expand(-1, -1, __pred.shape[-1])
+    return __pred
 
 
 class YOLO(torch.nn.Module):
@@ -576,7 +585,7 @@ class YOLO(torch.nn.Module):
     __msk = [int(elem) for elem in detect_dict[
       self.dkn_detect['mask']].split(',')]
     __ach = [(__all[2*elem], __all[2*elem+1]) for elem in __msk]
-    __cls = int(detect_dict[self.dkn_detect['classes']])
+    __cls = int(detect_dict[self.dkn_detect['n_cls']])
     return YOLODetect(__ach, __cls)
 
 
