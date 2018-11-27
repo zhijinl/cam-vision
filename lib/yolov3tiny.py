@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Tue Nov 27 23:44:25 2018 Zhijin Li
+## Last update Wed Nov 28 00:33:04 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -193,10 +193,18 @@ class PaddingSame(torch.nn.Module):
   computed as
       (inp_size + padding - size)/stride + 1
   which seems to be different than PyTorch
-  (pytorch 0.4.1).
+  (pytorch 0.4.1). Notice that, when stride = 1,
+  the output size is strictly equal to the input
+  size, since padding = size - 1.
+
 
   """
-  def __init__(self, ksize, stride):
+  def __init__(
+      self,
+      ksize,
+      stride,
+      dkn_padding=None,
+      padding_val=np.finfo(float).tiny):
     """
 
     Constructor.
@@ -209,10 +217,20 @@ class PaddingSame(torch.nn.Module):
     stride: int
     Pooling stride.
 
+    dkn_padding: int
+    Value parsed from the `padding` parameter
+    in Darknet max pooling layer.
+
+    padding_val: float
+    Value used for padding. Defaults to the tiny
+    negative value of float data type.
+
     """
+    super(PaddingSame, self).__init__()
     self.ksize = ksize
-    self.dkn_padding = ksize - 1
     self.stride = stride
+    self.dkn_padding = dkn_padding if dkn_padding else ksize - 1
+    self.padding_val = padding_val
 
 
   def forward(self, inp):
@@ -232,15 +250,14 @@ class PaddingSame(torch.nn.Module):
     The zero-padded output tensor.
 
     """
-    __inp_size = np.array(
-      [inp.shape[2], inp.shape[3]], dtype=np.int32)
-    # __out_size = (
-    #   __inp_size + self.dkn_padding - self.ksize)/self.stride + 1
-    __total = __out_size - __inp_size
+    __inp_size = np.array([inp.shape[2],inp.shape[3]],dtype=int)
+    __nops = np.ceil(__inp_size/self.stride)
+    __total = self.ksize - (__inp_size - (__nops-1)*self.stride)
     __beg = int(self.dkn_padding/2)
-    __end = __total - __beg
+    __end = (__total - __beg)
     return torch.nn.functional.pad(
-      inp, (__beg[1],__end[1],__beg[0],__end[0]), 'constant', 0)
+      inp, (__beg,int(__end[1]),__beg,int(__end[0])),
+      'constant', self.padding_val)
 
 
 class YOLODetect(torch.nn.Module):
@@ -730,14 +747,21 @@ class YOLO(torch.nn.Module):
     A pytorch 2D max pooling layer.
 
     """
-    if self.dkn_pool['padding'] not in pool_dict.keys():
-      pad = 0
-    else:
-      pad = int(pool_dict[self.dkn_pool['padding']])
-    return torch.nn.MaxPool2d(
-      kernel_size=int(pool_dict[self.dkn_pool['ksize']]),
-      stride=int(pool_dict[self.dkn_pool['stride']]),
-      padding=pad)
+    __k = int(pool_dict[self.dkn_pool['ksize']])
+    __s = int(pool_dict[self.dkn_pool['stride']])
+    return torch.nn.Sequential(
+      PaddingSame(__k, __s),
+      torch.nn.MaxPool2d(kernel_size=__k, stride=__s, padding=0))
+
+
+    # if self.dkn_pool['padding'] not in pool_dict.keys():
+    #   pad = 0
+    # else:
+    #   pad = int(pool_dict[self.dkn_pool['padding']])
+    # return torch.nn.MaxPool2d(
+    #   kernel_size=int(pool_dict[self.dkn_pool['ksize']]),
+    #   stride=int(pool_dict[self.dkn_pool['stride']]),
+    #   padding=pad)
 
 
   def __make_upsample(self, up_dict):
