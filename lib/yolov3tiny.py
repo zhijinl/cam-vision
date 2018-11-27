@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Mon Nov 26 22:20:13 2018 Zhijin Li
+## Last update Tue Nov 27 23:44:25 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -145,10 +145,102 @@ class YOLORoute(torch.nn.Module):
     if len(self.rindx) == 1:
       return feature_dict[self.rindx[0]]
     elif len(self.rindx) == 2:
+      print(self.cindx)
+      print(feature_dict[self.rindx[0]].shape)
+      print(feature_dict[self.rindx[1]].shape)
       return torch.cat(
         (feature_dict[self.rindx[0]],
          feature_dict[self.rindx[1]]),
         dim=1)
+
+
+class PaddingSame(torch.nn.Module):
+  """
+
+  Perform same padding for input tensor.
+
+  This implements the same padding scheme as
+  in max pooling layer in Darknet. The amount
+  of padding depends on the inp_size, the ksize
+  and the pooling stride.
+
+  Darknet always performs the `same` padding
+  for max pooling, meaning that when stride = 1,
+  the input and output tensor will have the same
+  dimension (darknet master-30 oct 2018).
+
+  In Darknet, padding is added to each side
+  of each dimension of the input tensor. When
+  the amount of padding is not specified in cfg
+  file, it is computed as
+      padding = ksize-1
+  The meaning of the above `padding` is different
+  in Darknet than in PyTorch. In Darknet, the
+  computed `padding` amount represents the total
+  amount of padding to be added to each dimension
+  of the input tensor. The amount of padding to be
+  added to the beginning of a dimension is
+      padding_beg = int(padding/2)
+  and the amount of padding to be added to the
+  end of a dimension is
+      padding_end = padding - padding_beg
+  In PyTorch, the `padding` parameter passed to
+  max pooling layer indicates the amount of
+  padding added to mthe beginning and the end of
+  each dimension of the input tensor.
+
+  The output size of max pooling in Darknet is
+  computed as
+      (inp_size + padding - size)/stride + 1
+  which seems to be different than PyTorch
+  (pytorch 0.4.1).
+
+  """
+  def __init__(self, ksize, stride):
+    """
+
+    Constructor.
+
+    Parameters
+    ----------
+    ksize: int
+    Pooling kernel size.
+
+    stride: int
+    Pooling stride.
+
+    """
+    self.ksize = ksize
+    self.dkn_padding = ksize - 1
+    self.stride = stride
+
+
+  def forward(self, inp):
+    """
+
+    Forward pass of the same padding layer.
+
+    Parameters
+    ----------
+    inp: torch.tensor
+    Input image as torch rank-4 tensor: batch x
+    channels x height x width.
+
+    Returns
+    ----------
+    torch.tensor
+    The zero-padded output tensor.
+
+    """
+    __inp_size = np.array(
+      [inp.shape[2], inp.shape[3]], dtype=np.int32)
+    # __out_size = (
+    #   __inp_size + self.dkn_padding - self.ksize)/self.stride + 1
+    __total = __out_size - __inp_size
+    __beg = int(self.dkn_padding/2)
+    __end = __total - __beg
+    return torch.nn.functional.pad(
+      inp, (__beg[1],__end[1],__beg[0],__end[0]), 'constant', 0)
 
 
 class YOLODetect(torch.nn.Module):
@@ -196,20 +288,86 @@ class YOLODetect(torch.nn.Module):
     image.
 
     """
-    __ratio = img_size/out.shape[-2:]
+    __ratio =torch.FloatTensor(
+      [img_size[__i]/out.shape[-2:][__i] for __i in (0, 1)])
     __pred = out.view(
       out.shape[0],len(self.anchors),self.classes+5,-1)
-    __pred[:,:,4,:].sigmoid_()  # obj score
-    __pred[:,:,:2,:].sigmoid_() # bbox center
-    __x, __y = np.meshgrid(range(out.shape[2]), range(out.shape[3]))
-    __pred[:,:,0,:] += __x.view(1, -1)
-    __pred[:,:,1,:] += __y.view(1, -1)
-    __pred[:,:,0,:] *= __ratio[0]
-    __pred[:,:,1,:] *= __ratio[1]
-    __pred[:,:,2:4,:].exp_() # bbox center
-    __pred[:,:,2:4,:] *= torch.FloatTensor(
-      self.anchors).unsqueeze(-1).expand(-1, -1, __pred.shape[-1])
+    self.__transform_obj_scores(__pred)
+    self.__transform_bbox_centers(__pred, out.shape[-2:], __ratio)
+    self.__transform_bbox_sizes(__pred)
     return __pred
+
+
+  def __transform_obj_scores(self, pred):
+    """
+
+    Transform prediction  feature maps to make
+    object socres between 0 and 1.
+
+    Parameters
+    ----------
+    pred: torch.tensor
+    The reshaped prediction feature maps with rank 4:
+    batch x n_anchors x n_pred x (height*width),
+    where n_pred is length of the prediction vector
+    for one bounding box, i.e. n_classes+5.
+
+    """
+    pred[:,:,4,:].sigmoid_()
+
+
+  def __transform_bbox_centers(self, pred, out_size, ratio):
+    """
+
+    Transform prediction feature maps to make
+    bounding box centers the same scale as the
+    input image.
+
+    Parameters
+    ----------
+    pred: torch.tensor
+    The reshaped prediction feature maps with rank 4:
+    batch x n_anchors x n_pred x (height*width),
+    where n_pred is length of the prediction vector
+    for one bounding box, i.e. n_classes+5.
+
+    out_size: torch.tensor
+    (height, width) of the prediction feature map.
+
+    ratio: torch.tensor
+    The ratio between the original image size and
+    the prediction feature map.
+
+    """
+    pred[:,:,:2,:].sigmoid_()
+    __x, __y = torch.meshgrid(
+      [torch.arange(out_size[0]),torch.arange(out_size[1])])
+    pred[:,:,0,:] += __x.contiguous().view(1,-1).type(pred.dtype)
+    pred[:,:,1,:] += __y.contiguous().view(1,-1).type(pred.dtype)
+    pred[:,:,0,:] *= ratio[0]
+    pred[:,:,1,:] *= ratio[1]
+
+
+  def __transform_bbox_sizes(self, pred):
+    """
+
+    Transform prediction feature maps to make
+    bounding box sizes the same scale as the
+    input image.
+
+    Parameters
+    ----------
+    pred: torch.tensor
+    The reshaped prediction feature maps with rank 4:
+    batch x n_anchors x n_pred x (height*width),
+    where n_pred is length of the prediction vector
+    for one bounding box, i.e. n_classes+5.
+
+    """
+    pred[:,:,2:4,:].exp_()
+    pred[:,:,2:4,:] *= torch.FloatTensor(
+      self.anchors).unsqueeze(-1).expand(-1, -1, pred.shape[-1])
+
 
 
 class YOLO(torch.nn.Module):
@@ -239,10 +397,35 @@ class YOLO(torch.nn.Module):
     self.inp_channels = nch
     self.out_chns_lst = []
     self.feature_dict = {}
+    self.detections   = []
     self.model = self.__make_yolo()
-    import pprint
-    pp = pprint.PrettyPrinter()
-    pp.pprint(self.model)
+
+
+  def forward(self, inp):
+    """
+
+    Forward pass of YOLO detector.
+
+    Parameters
+    ----------
+    inp: torch.tensor
+    Input image as torch rank-4 tensor: batch x
+    channels x height x width.
+
+    """
+    out = inp
+    for __indx, __lay in enumerate(self.model):
+      if (isinstance(__lay, torch.nn.Sequential) or
+          isinstance(__lay, torch.nn.Upsample)   or
+          isinstance(__lay, torch.nn.MaxPool2d)):
+        out = __lay(out)
+      if isinstance(__lay, YOLORoute):
+        out = __lay(self.feature_dict)
+      if isinstance(__lay, YOLODetect):
+        self.detections.append(__lay(out, inp.shape[-2:]))
+      print(__indx, out.shape)
+      if __indx in self.feature_dict.keys():
+        self.feature_dict[__indx] = out
 
 
   @property
@@ -252,12 +435,26 @@ class YOLO(torch.nn.Module):
     Name dictionary for parameters of Darknet
     convolutional layers.
 
+    note:
+    There can two parameters in darknet cfg file
+    representing padding:
+    1. The `padding` parameter indicates the amount
+       of padding to be added to each side of the
+       tensor.
+    2. The `pad` parameter does not indicate the
+       amount of padding, but indicates whether
+       padding will be performed. When set to a non
+       zero value, it invalidates the padding set
+       by`padding` parameter. In this case, the amount
+       of padding is equal to int(ksize/2).
+
     """
     return {
       'filters': 'filters',
       'ksize'  : 'size',
       'stride' : 'stride',
-      'padding': 'pad'
+      'pad_flag': 'pad',
+      'pad_size': 'padding'
     }
 
 
@@ -284,7 +481,8 @@ class YOLO(torch.nn.Module):
     """
     return {
       'ksize' : 'size',
-      'stride': 'stride'
+      'stride': 'stride',
+      'padding': 'padding'
     }
 
 
@@ -426,6 +624,27 @@ class YOLO(torch.nn.Module):
     layer optionally followed by batchnorm and
     activation.
 
+    note:
+    When padding is involved, PyTorch and Darknet
+    seem to compute the output size in the same manner
+    (torch 0.4.1, darknet master-30 oct 2018):
+    out_size = (inp_size+2*padding -ksize)/stride+1
+    Fpr both frameworks, the same amount of padding
+    will be added on both side of each dimension of
+    the tensor. Darknet only supports zero-padding.
+
+    There can two parameters in darknet cfg file
+    representing padding:
+    1. The `padding` parameter indicates the amount
+       of padding to be added to each side of the
+       tensor.
+    2. The `pad` parameter does not indicate the
+       amount of padding, but indicates whether
+       padding will be performed. When set to a non
+       zero value, it invalidates the padding set
+       by`padding` parameter. In this case, the amount
+       of padding is equal to int(ksize/2).
+
     Parameters
     ----------
     conv_dict: dict
@@ -445,12 +664,17 @@ class YOLO(torch.nn.Module):
     2D convolution block as a Sequential container.
 
     """
+    if self.dkn_conv['pad_size'] in conv_dict.keys():
+      __pad = int(conv_dict[self.dkn_conv['pad_size']])
+    if self.dkn_conv['pad_flag'] in conv_dict.keys():
+      __pad = int(int(conv_dict[self.dkn_conv['ksize']])/2)
+
     __l = [torch.nn.Conv2d(
       in_channels=in_ch,
       out_channels=int(conv_dict[self.dkn_conv['filters']]),
       kernel_size=int(conv_dict[self.dkn_conv['ksize']]),
       stride=int(conv_dict[self.dkn_conv['stride']]),
-      padding=int(conv_dict[self.dkn_conv['padding']]))]
+      padding=__pad)]
     if (('batch_normalize' in conv_dict) and
         conv_dict['batch_normalize']):
       __l.append(torch.nn.BatchNorm2d(
@@ -506,9 +730,14 @@ class YOLO(torch.nn.Module):
     A pytorch 2D max pooling layer.
 
     """
+    if self.dkn_pool['padding'] not in pool_dict.keys():
+      pad = 0
+    else:
+      pad = int(pool_dict[self.dkn_pool['padding']])
     return torch.nn.MaxPool2d(
       kernel_size=int(pool_dict[self.dkn_pool['ksize']]),
-      stride=int(pool_dict[self.dkn_pool['stride']]))
+      stride=int(pool_dict[self.dkn_pool['stride']]),
+      padding=pad)
 
 
   def __make_upsample(self, up_dict):
@@ -612,6 +841,7 @@ class YOLO(torch.nn.Module):
       elif __name.startswith(self.dkn_layers['skip']):
         __lay = self.__make_route(__indx, __par)
         __nchs = __lay.out_channels(self.out_chns_lst)
+        for __rind in __lay.rindx: self.feature_dict[__rind] = None
       elif __name.startswith(self.dkn_layers['maxpool']):
         __lay = self.__make_maxpool(__par)
       elif __name.startswith(self.dkn_layers['detect']):
