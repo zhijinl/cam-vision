@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Wed Nov 28 00:33:04 2018 Zhijin Li
+## Last update Wed Nov 28 22:43:29 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -145,9 +145,6 @@ class YOLORoute(torch.nn.Module):
     if len(self.rindx) == 1:
       return feature_dict[self.rindx[0]]
     elif len(self.rindx) == 2:
-      print(self.cindx)
-      print(feature_dict[self.rindx[0]].shape)
-      print(feature_dict[self.rindx[1]].shape)
       return torch.cat(
         (feature_dict[self.rindx[0]],
          feature_dict[self.rindx[1]]),
@@ -252,12 +249,55 @@ class PaddingSame(torch.nn.Module):
     """
     __inp_size = np.array([inp.shape[2],inp.shape[3]],dtype=int)
     __nops = np.ceil(__inp_size/self.stride)
-    __total = self.ksize - (__inp_size - (__nops-1)*self.stride)
+    __total = self.ksize + (__nops-1)*self.stride - __inp_size
     __beg = int(self.dkn_padding/2)
     __end = (__total - __beg)
     return torch.nn.functional.pad(
       inp, (__beg,int(__end[1]),__beg,int(__end[0])),
       'constant', self.padding_val)
+
+
+class NearestInterp(torch.nn.Module):
+  """
+
+  Nearest neighbor interpolation layer.
+
+  note:
+  From the source code, it appears that Darknet uses
+  nearest neighbor method for its upsampling layer
+  (darknet master-30 oct 2018).
+
+  Internally calls torch.nn.functional.interpolate
+  to suppress the warning on calling
+  torch.nn.Upsample.
+
+  """
+  def __init__(self, factor):
+    """
+    Constructor.
+
+    Parameters
+    ----------
+    factor: float
+    The interpolation factor.
+
+    """
+    super(NearestInterp, self).__init__()
+    self.factor = factor
+
+
+  def forward(self, inp):
+    """
+
+    Parameters
+    ----------
+    inp: torch.tensor
+    Input image as torch rank-4 tensor: batch x
+    channels x height x width.
+
+    """
+    return torch.nn.functional.interpolate(
+      inp, scale_factor=self.factor, mode='nearest')
 
 
 class YOLODetect(torch.nn.Module):
@@ -433,14 +473,13 @@ class YOLO(torch.nn.Module):
     out = inp
     for __indx, __lay in enumerate(self.model):
       if (isinstance(__lay, torch.nn.Sequential) or
-          isinstance(__lay, torch.nn.Upsample)   or
+          isinstance(__lay, NearestInterp)   or
           isinstance(__lay, torch.nn.MaxPool2d)):
         out = __lay(out)
       if isinstance(__lay, YOLORoute):
         out = __lay(self.feature_dict)
       if isinstance(__lay, YOLODetect):
         self.detections.append(__lay(out, inp.shape[-2:]))
-      print(__indx, out.shape)
       if __indx in self.feature_dict.keys():
         self.feature_dict[__indx] = out
 
@@ -754,16 +793,6 @@ class YOLO(torch.nn.Module):
       torch.nn.MaxPool2d(kernel_size=__k, stride=__s, padding=0))
 
 
-    # if self.dkn_pool['padding'] not in pool_dict.keys():
-    #   pad = 0
-    # else:
-    #   pad = int(pool_dict[self.dkn_pool['padding']])
-    # return torch.nn.MaxPool2d(
-    #   kernel_size=int(pool_dict[self.dkn_pool['ksize']]),
-    #   stride=int(pool_dict[self.dkn_pool['stride']]),
-    #   padding=pad)
-
-
   def __make_upsample(self, up_dict):
     """
 
@@ -783,9 +812,12 @@ class YOLO(torch.nn.Module):
     A pytorch upsample layer.
 
     """
-    return torch.nn.Upsample(
-      mode='bilinear',
-      scale_factor=float(up_dict[self.dkn_up['factor']]))
+    return NearestInterp(
+      factor=float(up_dict[self.dkn_up['factor']]))
+
+  # torch.nn.Upsample(
+  #     mode='bilinear',
+  #     scale_factor=float(up_dict[self.dkn_up['factor']]))
 
 
   def __make_route(self, curr_indx, route_dict):

@@ -1,6 +1,7 @@
 2018-11-28  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* lib/yolov3tiny.py (PaddingSame): Fix max pooling padding.
+	(NearestInterp): Fix nearest neighbor upsample layer.
 
 2018-11-27  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
