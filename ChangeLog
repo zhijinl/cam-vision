@@ -1,3 +1,7 @@
+2018-11-29  Zhijin Li  <jonathan.zj.lee@gmail.com>
+
+	* lib/yolov3tiny.py: Fix detection return.
+
 2018-11-28  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* lib/yolov3tiny.py (PaddingSame): Fix max pooling padding.

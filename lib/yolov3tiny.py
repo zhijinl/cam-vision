@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Wed Nov 28 22:43:29 2018 Zhijin Li
+## Last update Wed Nov 28 23:01:11 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -454,7 +454,6 @@ class YOLO(torch.nn.Module):
     self.inp_channels = nch
     self.out_chns_lst = []
     self.feature_dict = {}
-    self.detections   = []
     self.model = self.__make_yolo()
 
 
@@ -471,6 +470,7 @@ class YOLO(torch.nn.Module):
 
     """
     out = inp
+    detections = []
     for __indx, __lay in enumerate(self.model):
       if (isinstance(__lay, torch.nn.Sequential) or
           isinstance(__lay, NearestInterp)   or
@@ -479,10 +479,10 @@ class YOLO(torch.nn.Module):
       if isinstance(__lay, YOLORoute):
         out = __lay(self.feature_dict)
       if isinstance(__lay, YOLODetect):
-        self.detections.append(__lay(out, inp.shape[-2:]))
+        detections.append(__lay(out, inp.shape[-2:]))
       if __indx in self.feature_dict.keys():
         self.feature_dict[__indx] = out
-
+    return detections
 
   @property
   def dkn_conv(self):
