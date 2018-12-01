@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Wed Nov 28 23:01:11 2018 Zhijin Li
+## Last update Sat Dec  1 19:38:23 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -484,6 +484,21 @@ class YOLO(torch.nn.Module):
         self.feature_dict[__indx] = out
     return detections
 
+
+  def set_weights(self, weights):
+    """
+
+    Set YOLO model weights.
+
+    Parameters
+    ----------
+    weights: np.array
+    Array with model weights.
+
+    """
+    pass
+
+
   @property
   def dkn_conv(self):
     """
@@ -680,6 +695,10 @@ class YOLO(torch.nn.Module):
     layer optionally followed by batchnorm and
     activation.
 
+    In Darknet, convolution layers do not have bias
+    if batch norma is present in the conv block.
+    (darknet master-30-oct-2018)
+
     note:
     When padding is involved, PyTorch and Darknet
     seem to compute the output size in the same manner
@@ -725,16 +744,16 @@ class YOLO(torch.nn.Module):
     if self.dkn_conv['pad_flag'] in conv_dict.keys():
       __pad = int(int(conv_dict[self.dkn_conv['ksize']])/2)
 
+    __has_bn = (('batch_normalize' in conv_dict) and
+                int(conv_dict['batch_normalize']))
     __l = [torch.nn.Conv2d(
       in_channels=in_ch,
       out_channels=int(conv_dict[self.dkn_conv['filters']]),
       kernel_size=int(conv_dict[self.dkn_conv['ksize']]),
       stride=int(conv_dict[self.dkn_conv['stride']]),
-      padding=__pad)]
-    if (('batch_normalize' in conv_dict) and
-        conv_dict['batch_normalize']):
-      __l.append(torch.nn.BatchNorm2d(
-        num_features=__l[0].out_channels))
+      padding=__pad, bias=(not __has_bn))]
+    if __has_bn:
+      __l.append(torch.nn.BatchNorm2d(num_features=__l[0].out_channels))
     __act = conv_dict['activation']
     if (('activation' in conv_dict) and __act != 'linear'):
       __l.append(self.__make_activation(__act))

@@ -1,3 +1,7 @@
+2018-12-01  Zhijin Li  <jonathan.zj.lee@gmail.com>
+
+	* lib/yolov3tiny.py: Fix YOLO conv layer bias.
+
 2018-11-29  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* lib/yolov3tiny.py: Fix detection return.
