@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Sat Dec  1 19:38:23 2018 Zhijin Li
+## Last update Sat Dec  1 20:33:39 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -435,7 +435,7 @@ class YOLO(torch.nn.Module):
 
   """
 
-  def __init__(self, cfg_path, nch):
+  def __init__(self, cfg_path, nch, weights):
     """
 
     Constructor
@@ -448,6 +448,9 @@ class YOLO(torch.nn.Module):
     nch: int
     Number of channels in input image.
 
+    weights: numpy.array
+    A 1d numpy array with model weights.
+
     """
     super(YOLO, self).__init__()
     self.cfg = self.__parse_darknet_cfg(cfg_path)
@@ -455,6 +458,7 @@ class YOLO(torch.nn.Module):
     self.out_chns_lst = []
     self.feature_dict = {}
     self.model = self.__make_yolo()
+    self.set_weights(weights)
 
 
   def forward(self, inp):
@@ -485,6 +489,47 @@ class YOLO(torch.nn.Module):
     return detections
 
 
+  def __is_conv_block(self, inp):
+    """
+
+    Check if input is a convolutional block.
+
+    Parameters
+    ----------
+    block: torch.nn.Module
+    An input module.
+
+    Returns
+    ----------
+    bool
+    True if the the module is sequential block with
+    conv2d layer.
+
+    """
+    return (isinstance(inp, torch.nn.Sequential) and any(
+      [isinstance(__elem, torch.nn.Conv2d) for __elem in inp]))
+
+
+  def __has_bn(self, block):
+    """
+
+    Check if input block has batch normalization.
+
+    Parameters
+    ----------
+    block: torch.nn.Module
+    An input block.
+
+    Returns
+    ----------
+    bool
+    True if the the block contains conv2d layer.
+
+    """
+    return any(
+      [isinstance(__elem, torch.nn.BatchNorm2d) for __elem in block])
+
+
   def set_weights(self, weights):
     """
 
@@ -496,7 +541,40 @@ class YOLO(torch.nn.Module):
     Array with model weights.
 
     """
-    pass
+    __c = 0
+    __convs = [l for l in self.model if self.__is_conv_block(l)]
+    for __i, __l in enumerate(__convs):
+      if self.__has_bn(__l):
+        __l[1].bias.data.copy_(
+          torch.from_numpy(weights[__c:__c+__l[1].bias.numel()]).
+          view_as(__l[1].bias))
+        __c += __l[1].bias.numel()
+        __l[1].weight.data.copy_(
+          torch.from_numpy(weights[__c:__c+__l[1].weight.numel()]).
+          view_as(__l[1].weight))
+        __c += __l[1].weight.numel()
+        __l[1].running_mean.data.copy_(
+          torch.from_numpy(weights[__c:__c+__l[1].running_mean.numel()]).
+          view_as(__l[1].running_mean))
+        __c += __l[1].running_mean.numel()
+        __l[1].running_var.data.copy_(
+          torch.from_numpy(weights[__c:__c+__l[1].running_var.numel()]).
+          view_as(__l[1].running_var))
+        __c += __l[1].running_var.numel()
+        __l[0].weight.data.copy_(
+          torch.from_numpy(weights[__c:__c+__l[0].weight.numel()]).
+          view_as(__l[0].weight))
+        __c += __l[0].weight.numel()
+      else:
+        __l[0].bias.data.copy_(
+          torch.from_numpy(weights[__c:__c+__l[0].bias.numel()]).
+          view_as(__l[0].bias))
+        __c += __l[0].bias.numel()
+        __l[0].weight.data.copy_(
+          torch.from_numpy(weights[__c:__c+__l[0].weight.numel()]).
+          view_as(__l[0].weight))
+        __c += __l[0].weight.numel()
+
 
 
   @property

@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Tue Nov 13 21:26:25 2018 Zhijin Li
+## Last update Sat Dec  1 21:19:10 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -283,3 +283,55 @@ def classify_frame(
         top_labs[__c][:min(len(top_labs[__c]),20)],
         top_scrs[__c]))
   return (top_labs, top_scrs)
+
+
+def load_dkn_weights(w_path, dtype, skip_bytes=20):
+  """
+
+  Load Darknet weight file.
+
+  Parameters
+  ----------
+  w_path: str
+  Path to the weight file.
+
+  dtype: str or datatype
+  Data type of stored weights.
+
+  skip_bytes: int
+  Number of bytes to skip. Darknet weight
+  file starts with 5 x int32 (20 bytes) header
+  elements.
+
+  Returns
+  ----------
+  np.array
+  Weight array.
+
+  """
+  with open(w_path, 'rb') as __wf:
+    __wf.seek(skip_bytes, 0)
+    __content = np.fromfile(__wf, dtype)
+    return __content
+
+
+def detect_frame(model, frame, obj_thresh=0.5):
+  """
+
+  Detect objects in a frame.
+
+  """
+  __detections = model(frame)
+  __boxes = []
+  for __d in __detections:
+    for __b in range(__d.shape[1]):
+      for __i in range(__d.shape[-1]):
+        __pred = __d[:, __b, :, __i].squeeze()
+        if __pred[4] >= obj_thresh:
+          print(__pred)
+          __boxes.append(
+            np.array([int(__pred[0]),
+                      int(__pred[1]),
+                      int(__pred[0]+__pred[2]),
+                      int(__pred[1]+__pred[3])], dtype=np.int32))
+  return __boxes
