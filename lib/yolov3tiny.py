@@ -798,6 +798,11 @@ class YOLO(torch.nn.Module):
        by`padding` parameter. In this case, the amount
        of padding is equal to int(ksize/2).
 
+    In Darknet the epsilon parameter used to avoid
+    zero-division during batch norm is set to 1e-6,
+    different than 1e-5, the default value used in
+    pytorch.
+
     Parameters
     ----------
     conv_dict: dict
@@ -831,7 +836,8 @@ class YOLO(torch.nn.Module):
       stride=int(conv_dict[self.dkn_conv['stride']]),
       padding=__pad, bias=(not __has_bn))]
     if __has_bn:
-      __l.append(torch.nn.BatchNorm2d(num_features=__l[0].out_channels))
+      __l.append(torch.nn.BatchNorm2d(
+        num_features=__l[0].out_channels,eps=1e-6))
     __act = conv_dict['activation']
     if (('activation' in conv_dict) and __act != 'linear'):
       __l.append(self.__make_activation(__act))
