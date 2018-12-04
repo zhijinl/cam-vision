@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Sat Dec  1 20:33:39 2018 Zhijin Li
+## Last update Tue Dec  4 22:50:03 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -349,17 +349,18 @@ class YOLODetect(torch.nn.Module):
       [img_size[__i]/out.shape[-2:][__i] for __i in (0, 1)])
     __pred = out.view(
       out.shape[0],len(self.anchors),self.classes+5,-1)
-    self.__transform_obj_scores(__pred)
+    self.__transform_probabilities(__pred)
     self.__transform_bbox_centers(__pred, out.shape[-2:], __ratio)
     self.__transform_bbox_sizes(__pred)
     return __pred
 
 
-  def __transform_obj_scores(self, pred):
+  def __transform_probabilities(self, pred):
     """
 
-    Transform prediction  feature maps to make
-    object socres between 0 and 1.
+    Transform prediction feature maps to make
+    object socres and class probabilities between
+    0 and 1.
 
     Parameters
     ----------
@@ -370,7 +371,7 @@ class YOLODetect(torch.nn.Module):
     for one bounding box, i.e. n_classes+5.
 
     """
-    pred[:,:,4,:].sigmoid_()
+    pred[:,:,4:,:].sigmoid_()
 
 
   def __transform_bbox_centers(self, pred, out_size, ratio):
@@ -435,7 +436,7 @@ class YOLO(torch.nn.Module):
 
   """
 
-  def __init__(self, cfg_path, nch, weights):
+  def __init__(self, cfg_path, nch, weights, set_to_eval=True):
     """
 
     Constructor
@@ -451,6 +452,11 @@ class YOLO(torch.nn.Module):
     weights: numpy.array
     A 1d numpy array with model weights.
 
+    set_to_eval: bool
+    Tag indicating whether the model will be
+    set to inference mode systematically.
+    Default to True.
+
     """
     super(YOLO, self).__init__()
     self.cfg = self.__parse_darknet_cfg(cfg_path)
@@ -459,6 +465,7 @@ class YOLO(torch.nn.Module):
     self.feature_dict = {}
     self.model = self.__make_yolo()
     self.set_weights(weights)
+    if set_to_eval: self.model.eval()
 
 
   def forward(self, inp):
@@ -473,19 +480,19 @@ class YOLO(torch.nn.Module):
     channels x height x width.
 
     """
-    out = inp
+    __out = inp
     detections = []
     for __indx, __lay in enumerate(self.model):
       if (isinstance(__lay, torch.nn.Sequential) or
-          isinstance(__lay, NearestInterp)   or
+          isinstance(__lay, NearestInterp)       or
           isinstance(__lay, torch.nn.MaxPool2d)):
-        out = __lay(out)
+        __out = __lay(__out)
       if isinstance(__lay, YOLORoute):
-        out = __lay(self.feature_dict)
+        __out = __lay(self.feature_dict)
       if isinstance(__lay, YOLODetect):
-        detections.append(__lay(out, inp.shape[-2:]))
+        detections.append(__lay(__out, inp.shape[-2:]))
       if __indx in self.feature_dict.keys():
-        self.feature_dict[__indx] = out
+        self.feature_dict[__indx] = __out
     return detections
 
 
@@ -574,7 +581,6 @@ class YOLO(torch.nn.Module):
           torch.from_numpy(weights[__c:__c+__l[0].weight.numel()]).
           view_as(__l[0].weight))
         __c += __l[0].weight.numel()
-
 
 
   @property
@@ -917,10 +923,6 @@ class YOLO(torch.nn.Module):
     """
     return NearestInterp(
       factor=float(up_dict[self.dkn_up['factor']]))
-
-  # torch.nn.Upsample(
-  #     mode='bilinear',
-  #     scale_factor=float(up_dict[self.dkn_up['factor']]))
 
 
   def __make_route(self, curr_indx, route_dict):

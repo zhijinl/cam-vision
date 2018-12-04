@@ -1,3 +1,8 @@
+2018-12-04  Zhijin Li  <jonathan.zj.lee@gmail.com>
+
+	* lib/yolov3tiny.py (YOLODetect.__transform_bbox_centers): Bugfix
+	set model to eval mode.
+
 2018-12-03  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* lib/yolov3tiny.py (YOLO.forward): Fix batch norm epsilon.
