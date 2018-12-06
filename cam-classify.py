@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 15:09:53 2018 Zhijin Li
-## Last update Tue Nov 13 21:31:24 2018 Zhijin Li
+## Last update Sat Dec  1 21:35:06 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -76,6 +76,8 @@ if __name__ == '__main__':
 
     frame = stream.get_frame()
     frame = cap.trim_frame_square(frame, .55, 0.5625)
+
+    frame[:,:,0], frame[:,:,2] = frame[:,:,2], frame[:,:,0].copy()
 
     if (counter % SKIP_FRAMES) == 0:
       top_labs, top_scrs = utils.classify_frame(
