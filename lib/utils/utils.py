@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Sat Dec  8 21:46:38 2018 Zhijin Li
+## Last update Sat Dec  8 22:45:37 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -141,7 +141,12 @@ def load_img(img_path, target_size, normalize=True):
   return np.expand_dims(img.astype(np.float32), axis=0)
 
 
-def make_predict_inp(img, target_size, normalize=True):
+def make_predict_inp(
+    img,
+    target_size=None,
+    normalize=True,
+    permute_br=True,
+    channel_first=False):
   """
 
   Transform an image for TF prediction mode.
@@ -149,13 +154,27 @@ def make_predict_inp(img, target_size, normalize=True):
   Parameters
   ----------
   img: np.ndarray
-  An input image array.
+  An input image array. Assumed to be RGB image.
 
   target_size: int
-  Target square size for image resizing.
+  Target square size for image resizing. Defaults
+  to None, i.e. no resizing.
 
   normalize: bool
   Whether input image should be divided by 255.
+
+  permute_br: bool
+  Whether permutation of the Blue and Red
+  channels should be performed. This is generally
+  needed when the input image is read using OpenCV,
+  since OpenCV uses BGR ordering, while most neural
+  networks assumes input to be RGB ordering. Defaults
+  to True.
+
+  channel_first: bool
+  When set to true, the input image will be
+  converted to `channel_first` ordering. Defaults to
+  False.
 
   Returns
   ----------
@@ -164,11 +183,16 @@ def make_predict_inp(img, target_size, normalize=True):
   TF model prediction.
 
   """
-  if target_size is not None:
+  if target_size:
     img = cv2.resize(img, dsize=(target_size, target_size))
   if normalize:
     img = img.astype(np.float32) / 255.0
-  return np.expand_dims(img.astype(np.float32), axis=0)
+  if permute_br:
+    img[:,:,0], img[:,:,2] = img[:,:,2], img[:,:,0].copy()
+  img = np.expand_dims(img.astype(np.float32), axis=0)
+  if channel_first:
+    return img.transpose(0,3,1,2)
+  return img
 
 
 def predict_top(model, img, top_classes, label_dict):
@@ -253,6 +277,8 @@ def classify_frame(
     top_classes,
     label_dict,
     normalize=True,
+    permute_br=True,
+    channel_first=False,
     verbose=True):
   """
 
@@ -280,6 +306,19 @@ def classify_frame(
 
   normalize: bool
   Whether input image should be divided by 255.
+
+  permute_br: bool
+  Whether permutation of the Blue and Red
+  channels should be performed. This is generally
+  needed when the input image is read using OpenCV,
+  since OpenCV uses BGR ordering, while most neural
+  networks assumes input to be RGB ordering. Defaults
+  to True.
+
+  channel_first: bool
+  When set to true, the input image will be
+  converted to `channel_first` ordering. Defaults to
+  False.
 
   verbose: bool
   Controls console print verbosity. Defaults

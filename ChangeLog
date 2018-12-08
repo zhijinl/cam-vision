@@ -1,5 +1,8 @@
 2018-12-08  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* lib/utils/utils.py: Add BR channel swap and channel_first
+	reordering in make_predict_inp.
+
 	* lib/yolov3tiny.py: Fix same padding value for max pooling
 	layer.
 	Refactorize set_weights interface.
