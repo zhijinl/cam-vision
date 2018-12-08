@@ -2,6 +2,7 @@
 
 	* lib/yolov3tiny.py: Fix same padding value for max pooling
 	layer.
+	Refactorize set_weights interface.
 
 2018-12-06  Zhijin Li  <jonathan.zj.lee@gmail.com>
 

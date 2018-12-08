@@ -496,47 +496,6 @@ class YOLO(torch.nn.Module):
     return detections
 
 
-  def __is_conv_block(self, inp):
-    """
-
-    Check if input is a convolutional block.
-
-    Parameters
-    ----------
-    block: torch.nn.Module
-    An input module.
-
-    Returns
-    ----------
-    bool
-    True if the the module is sequential block with
-    conv2d layer.
-
-    """
-    return (isinstance(inp, torch.nn.Sequential) and any(
-      [isinstance(__elem, torch.nn.Conv2d) for __elem in inp]))
-
-
-  def __has_bn(self, block):
-    """
-
-    Check if input block has batch normalization.
-
-    Parameters
-    ----------
-    block: torch.nn.Module
-    An input block.
-
-    Returns
-    ----------
-    bool
-    True if the the block contains conv2d layer.
-
-    """
-    return any(
-      [isinstance(__elem, torch.nn.BatchNorm2d) for __elem in block])
-
-
   def set_weights(self, weights):
     """
 
@@ -552,35 +511,9 @@ class YOLO(torch.nn.Module):
     __convs = [l for l in self.model if self.__is_conv_block(l)]
     for __i, __l in enumerate(__convs):
       if self.__has_bn(__l):
-        __l[1].bias.data.copy_(
-          torch.from_numpy(weights[__c:__c+__l[1].bias.numel()]).
-          view_as(__l[1].bias))
-        __c += __l[1].bias.numel()
-        __l[1].weight.data.copy_(
-          torch.from_numpy(weights[__c:__c+__l[1].weight.numel()]).
-          view_as(__l[1].weight))
-        __c += __l[1].weight.numel()
-        __l[1].running_mean.data.copy_(
-          torch.from_numpy(weights[__c:__c+__l[1].running_mean.numel()]).
-          view_as(__l[1].running_mean))
-        __c += __l[1].running_mean.numel()
-        __l[1].running_var.data.copy_(
-          torch.from_numpy(weights[__c:__c+__l[1].running_var.numel()]).
-          view_as(__l[1].running_var))
-        __c += __l[1].running_var.numel()
-        __l[0].weight.data.copy_(
-          torch.from_numpy(weights[__c:__c+__l[0].weight.numel()]).
-          view_as(__l[0].weight))
-        __c += __l[0].weight.numel()
+        __c = self.__set_conv_bn_weights(__l, weights, __c)
       else:
-        __l[0].bias.data.copy_(
-          torch.from_numpy(weights[__c:__c+__l[0].bias.numel()]).
-          view_as(__l[0].bias))
-        __c += __l[0].bias.numel()
-        __l[0].weight.data.copy_(
-          torch.from_numpy(weights[__c:__c+__l[0].weight.numel()]).
-          view_as(__l[0].weight))
-        __c += __l[0].weight.numel()
+        __c = self.__set_conv_nobn_weights(__l, weights, __c)
 
 
   @property
@@ -767,6 +700,134 @@ class YOLO(torch.nn.Module):
         __secs[__switch][__sec_name][
           __k.strip()] = __v.strip()
     return __secs
+
+
+  def __is_conv_block(self, inp):
+    """
+
+    Check if input is a convolutional block.
+
+    Parameters
+    ----------
+    block: torch.nn.Module
+    An input module.
+
+    Returns
+    ----------
+    bool
+    True if the the module is sequential block with
+    conv2d layer.
+
+    """
+    return (isinstance(inp, torch.nn.Sequential) and any(
+      [isinstance(__elem, torch.nn.Conv2d) for __elem in inp]))
+
+
+  def __has_bn(self, block):
+    """
+
+    Check if input block has batch normalization.
+
+    Parameters
+    ----------
+    block: torch.nn.Module
+    An input block.
+
+    Returns
+    ----------
+    bool
+    True if the the block contains conv2d layer.
+
+    """
+    return any(
+      [isinstance(__elem, torch.nn.BatchNorm2d) for __elem in block])
+
+
+  def __set_conv_bn_weights(self, conv, warr, indx):
+    """
+
+    Set for conv block with batch norm.
+
+    Parameters
+    ----------
+    conv: torch.nn.Module
+    The input conv block.
+
+    warr: np.array
+    The weight array.
+
+    indx: int
+    The index indicating the beginning in
+    the weight array to be considered.
+
+    Returns
+    ----------
+    The incremented new index to be used
+    for next call to set weight.
+
+    """
+    indx = self.__set_tensor(conv[1].bias        , warr, indx)
+    indx = self.__set_tensor(conv[1].weight, warr, indx)
+    indx = self.__set_tensor(conv[1].running_mean, warr, indx)
+    indx = self.__set_tensor(conv[1].running_var , warr, indx)
+    indx = self.__set_tensor(conv[0].weight, warr, indx)
+    return indx
+
+
+  def __set_conv_nobn_weights(self, conv, warr, indx):
+    """
+
+    Set for conv block without batch norm.
+
+    Parameters
+    ----------
+    conv: torch.nn.Module
+    The input conv block.
+
+    warr: np.array
+    The weight array.
+
+    indx: int
+    The index indicating the beginning in
+    the weight array to be considered.
+
+    Returns
+    ----------
+    The incremented new index to be used
+    for next call to set weight.
+
+    """
+    indx = self.__set_tensor(conv[0].bias  , warr, indx)
+    indx = self.__set_tensor(conv[0].weight, warr, indx)
+    return indx
+
+
+  def __set_tensor(self, ten, warr, indx):
+    """
+
+    Set values for a tensor.
+
+    Parameters
+    ----------
+    ten: torch.tensor
+    The input torch tensor.
+
+    warr: np.array
+    The weight array.
+
+    indx: int
+    The index indicating the beginning in
+    the weight array to be considered.
+
+    Returns
+    ----------
+    The incremented new index to be used
+    for next call `to __set_tensor`.
+
+    """
+    ten.data.copy_(
+      torch.from_numpy(warr[indx:indx+ten.numel()]).view_as(ten))
+    return indx + ten.numel()
 
 
   def __make_conv_block(self, conv_dict, in_ch):
