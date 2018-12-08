@@ -34,13 +34,37 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Sat Dec  1 21:19:10 2018 Zhijin Li
+## Last update Sat Dec  8 21:46:38 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
 import os
 import torch
 import numpy as np
+
+
+def print_mat(mat, width=10, prec=4):
+  """
+  A nice printer for floating point
+  matrices.
+
+  Parameters
+  ----------
+  mat: 2D matrix
+  An input 2D matrix to print.
+
+  width: int
+  Minimum width for each element to print.
+
+  prec: int
+  Floating point precision for each element
+  to print.
+
+  """
+  for __indx in range(mat.shape[0]):
+    __str = '{:{width}.{prec}f} '*mat.shape[1]
+    print(__str.format(
+      *mat[__indx,:], width=width, prec=prec))
 
 
 def read_txt_as_strs(txt_path, strip=' ', cmnt=None):
@@ -312,7 +336,7 @@ def load_dkn_weights(w_path, dtype, skip_bytes=20):
   with open(w_path, 'rb') as __wf:
     __wf.seek(skip_bytes, 0)
     __content = np.fromfile(__wf, dtype)
-    return __content
+  return __content
 
 
 def detect_frame(model, frame, obj_thresh=0.5):

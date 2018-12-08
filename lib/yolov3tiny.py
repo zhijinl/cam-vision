@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Tue Dec  4 22:50:03 2018 Zhijin Li
+## Last update Sat Dec  8 22:08:51 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -183,7 +183,7 @@ class PaddingSame(torch.nn.Module):
       padding_end = padding - padding_beg
   In PyTorch, the `padding` parameter passed to
   max pooling layer indicates the amount of
-  padding added to mthe beginning and the end of
+  padding added to the beginning and the end of
   each dimension of the input tensor.
 
   The output size of max pooling in Darknet is
@@ -201,7 +201,7 @@ class PaddingSame(torch.nn.Module):
       ksize,
       stride,
       dkn_padding=None,
-      padding_val=np.finfo(float).tiny):
+      padding_val=-1e10):
     """
 
     Constructor.
@@ -219,14 +219,15 @@ class PaddingSame(torch.nn.Module):
     in Darknet max pooling layer.
 
     padding_val: float
-    Value used for padding. Defaults to the tiny
-    negative value of float data type.
+    Value used for padding. Note: for max pooling,
+    this should be a really small negative number
+    and not 0. Defaults to -1e10.
 
     """
     super(PaddingSame, self).__init__()
     self.ksize = ksize
     self.stride = stride
-    self.dkn_padding = dkn_padding if dkn_padding else ksize - 1
+    self.dkn_padding = dkn_padding if dkn_padding else ksize-1
     self.padding_val = padding_val
 
 
@@ -427,7 +428,6 @@ class YOLODetect(torch.nn.Module):
       self.anchors).unsqueeze(-1).expand(-1, -1, pred.shape[-1])
 
 
-
 class YOLO(torch.nn.Module):
   """
 
@@ -484,13 +484,13 @@ class YOLO(torch.nn.Module):
     detections = []
     for __indx, __lay in enumerate(self.model):
       if (isinstance(__lay, torch.nn.Sequential) or
-          isinstance(__lay, NearestInterp)       or
-          isinstance(__lay, torch.nn.MaxPool2d)):
+          isinstance(__lay, NearestInterp)):
         __out = __lay(__out)
       if isinstance(__lay, YOLORoute):
         __out = __lay(self.feature_dict)
       if isinstance(__lay, YOLODetect):
-        detections.append(__lay(__out, inp.shape[-2:]))
+        __out = __lay(__out, inp.shape[-2:])
+        detections.append(__out)
       if __indx in self.feature_dict.keys():
         self.feature_dict[__indx] = __out
     return detections
