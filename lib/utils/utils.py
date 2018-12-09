@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Sat Dec  8 22:45:37 2018 Zhijin Li
+## Last update Sun Dec  9 22:23:17 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -378,23 +378,62 @@ def load_dkn_weights(w_path, dtype, skip_bytes=20):
   return __content
 
 
-def detect_frame(model, frame, obj_thresh=0.5):
+def nms(dets, nms_thresh):
+  """
+
+  Do non-maximum suppression.
+
+  """
+  return dets
+
+
+def detect_frame(model, frame, obj_thresh=0.5, nms_thresh=None):
   """
 
   Detect objects in a frame.
+
+  Parameters
+  ----------
+  model: YOLO
+  The YOLO detector model.
+
+  frame: torch.tensor
+  The input frame as a torch rank-4 tensor.
+
+  obj_thresh: float
+  Threshold on objectiveness and class
+  probabilities.
+
+  nms_thresh: float
+  Threshold on IOU used during nms.
+
+  Returns
+  ----------
+  torch.tensor
+  A rank-2 tensor, where each row is a size-7
+  vector representing a detection bounding box.
+  The meaning of each element in the vector is
+  as follows:
+  1. bbox begin point x coordinate.
+  2. bbox begin point y coordinate.
+  3. bbox width.
+  4. bbox height.
+  5. objectness score.
+  6. max class probability.
+  7. class index of the corresponding max prob.
 
   """
   __detections = model(frame)
   __boxes = []
   for __d in __detections:
-    for __b in range(__d.shape[1]):
-      for __i in range(__d.shape[-1]):
-        __pred = __d[:, __b, :, __i].squeeze()
-        if __pred[4] >= obj_thresh:
-          print(__pred)
-          __boxes.append(
-            np.array([int(__pred[0]),
-                      int(__pred[1]),
-                      int(__pred[0]+__pred[2]),
-                      int(__pred[1]+__pred[3])], dtype=np.int32))
-  return __boxes
+    __p = __d.permute(0,2,1,3).contiguous().view(__d.shape[2],-1)
+    __mprb, __midx = torch.max(__p[5:,:],dim=0)
+    __b = torch.cat([
+      __p[:5,:], __mprb.unsqueeze(0),
+      __midx.type(torch.FloatTensor).unsqueeze(0)],0)
+    __b = __b[:, (__b[4,:]*__b[5,:] > obj_thresh)]
+    __b[:2,:] -= __b[2:4,:]/2.0
+    __boxes.append(__b)
+  __dets = torch.cat(__boxes, dim=1)
+  if nms_thresh: dets = nms(dets, nms_thresh)
+  return __dets

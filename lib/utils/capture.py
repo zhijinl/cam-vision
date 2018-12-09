@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Mon Oct 29 22:34:54 2018 Zhijin Li
+## Last update Sun Dec  9 22:19:06 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -247,6 +247,50 @@ def make_pred_frame(frame, labels, scores):
       cv2.FONT_HERSHEY_COMPLEX_SMALL,
       __s, (0,0,0), lineType=cv2.LINE_AA)
   return np.concatenate((frame, __pframe), axis=0)
+
+
+def make_detection_frame(img, dets, classes):
+  """
+
+  Create a frame visualizing detection result.
+
+  Parameters
+  ----------
+  img: np.array
+  The input original RGB color input image. Assumed
+  to be rank-3, channel-last ordering, with value
+  btw 0 and 255.
+
+  dets: torch.tensor
+  Bounding box tensor return by `detect_frame`.
+
+  classes: list
+  A list of coco class string names.
+
+  Returns
+  ----------
+  np.array
+  A frame/image visualizing detection result.
+
+  """
+  __low, __high = 0, 255
+  for __indx, __b in enumerate(dets.t()):
+    __c = [
+      np.random.randint(__low, __high),
+      np.random.randint(__low, __high),
+      np.random.randint(__low, __high)]
+    img = cv2.rectangle(
+      img,
+      (__b[0], __b[1]),
+      (__b[0] + __b[2],
+       __b[1] + __b[3]),
+      color=__c, thickness=2)
+    cv2.putText(
+      img, '{} {:.3f}'.format(
+        classes[int(__b[-1])], __b[4]*__b[5]),
+      (__b[0], __b[1]-5), cv2.FONT_HERSHEY_TRIPLEX,
+      0.4, __c, lineType=cv2.LINE_AA)
+  return img
 
 
 if __name__ == '__main__':

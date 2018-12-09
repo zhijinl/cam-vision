@@ -1,5 +1,7 @@
 2018-12-09  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* lib/utils/utils.py: Create detection frame.
+
 	* lib/yolov3tiny.py: Refactorize conv block.
 
 2018-12-08  Zhijin Li  <jonathan.zj.lee@gmail.com>
