@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Sat Dec  8 22:08:51 2018 Zhijin Li
+## Last update Sun Dec  9 18:21:43 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -43,6 +43,165 @@ import torchvision
 import collections
 import numpy as np
 from .utils import utils as utils
+
+
+class YOLOConvBlock(torch.nn.Module):
+  """
+
+  YOLO convolutional block
+
+  A convolutional block consists of a convolution
+  layer optionally followed by batchnorm and
+  activation.
+
+  In Darknet, convolution layers do not have bias
+  if batch norma is present in the conv block.
+  (darknet master-30-oct-2018)
+
+  note:
+  When padding is involved, PyTorch and Darknet
+  seem to compute the output size in the same manner
+  (torch 0.4.1, darknet master-30 oct 2018):
+  out_size = (inp_size+2*padding -ksize)/stride+1
+  Fpr both frameworks, the same amount of padding
+  will be added on both side of each dimension of
+  the tensor. Darknet only supports zero-padding.
+
+  There can be two parameters in darknet cfg file
+  representing padding:
+  1. The `padding` parameter indicates the amount
+     of padding to be added to each side of each
+     dimension of the tensor.
+  2. The `pad` parameter does not indicate the
+     amount of padding, but indicates whether
+     padding will be performed. When set to a non
+     zero value, it invalidates the padding set
+     by`padding` parameter. In this case, the amount
+     of padding is equal to int(ksize/2).
+
+  In Darknet the epsilon parameter used to avoid
+  zero-division during batch norm is set to 1e-6,
+  different than 1e-5, the default value used in
+  pytorch.
+
+  """
+
+  def __init__(
+      self,
+      in_channels,
+      out_channels,
+      ksize,
+      stride,
+      activation,
+      pad,
+      batchnorm):
+    """
+
+    Constructor
+
+    Parameters
+    ----------
+    in_channels: int
+    Number of input channels.
+
+    out_channels: int
+    Number of output channels, i.e. number of
+    kernels.
+
+    ksize: int
+    Convolution kernel size.
+
+    stride: int
+    Convolution stride.
+
+    activation: str
+    Name of the activation function, e.g.
+    `leaky`, `linear`.
+
+    pad: int
+    Number of pixels to pad to each side of
+    each dimension of the input tensor.
+
+    batchnorm: bool
+    Whether batchnorm will be performed
+    between convolution and activation.
+
+    """
+    super(YOLOConvBlock, self).__init__()
+    self.in_channels  = in_channels
+    self.out_channels = out_channels
+    self.ksize        = ksize
+    self.stride       = stride
+    self.pad          = pad
+    self.activation   = activation
+    self.batchnorm    = batchnorm
+    self.conv_block   = self.__make_block()
+
+
+  def __make_activation(self):
+    """
+
+    Create an pytorch activation layer.
+
+    Returns
+    ----------
+    torch.nn
+    A pytorch activation layer.
+
+    """
+    if self.activation == 'leaky':
+      return torch.nn.LeakyReLU(
+        negative_slope=0.1, inplace=False)
+    else:
+      raise Exception(
+        'unknown activation: {}'.format(act_name))
+
+
+  def __make_block(self):
+    """
+
+    Create torch Sequential block with
+    convolutional and possibly batchnorm
+    & activation.
+
+    Returns
+    ----------
+    A torch.nn.Sequential representing
+    a Darknet convolution block.
+
+    """
+    __l = [
+      torch.nn.Conv2d(
+        in_channels=self.in_channels,
+        out_channels=self.out_channels,
+        kernel_size=self.ksize,
+        stride=self.stride,
+        padding=self.pad,
+        bias=(not self.batchnorm))]
+    if self.batchnorm:
+      __l.append(torch.nn.BatchNorm2d(__l[0].out_channels, eps=1e-6))
+    if (self.activation and self.activation != 'linear'):
+      __l.append(self.__make_activation())
+    return torch.nn.Sequential(*__l)
+
+
+  def forward(self, inp):
+    """
+
+    Forward pass for the convolutional block..
+
+    Parameters
+    ----------
+    inp: torch.tensor
+    The input rank-4 torch tensor.
+
+    Returns
+    ----------
+    torch.tensor
+    The output tensor.
+
+    """
+    return self.conv_block(inp)
 
 
 class YOLORoute(torch.nn.Module):
@@ -351,7 +510,7 @@ class YOLODetect(torch.nn.Module):
     __pred = out.view(
       out.shape[0],len(self.anchors),self.classes+5,-1)
     self.__transform_probabilities(__pred)
-    self.__transform_bbox_centers(__pred, out.shape[-2:], __ratio)
+    self.__transform_bbox_centers(__pred,out.shape[-2:],__ratio)
     self.__transform_bbox_sizes(__pred)
     return __pred
 
@@ -362,6 +521,11 @@ class YOLODetect(torch.nn.Module):
     Transform prediction feature maps to make
     object socres and class probabilities between
     0 and 1.
+
+    Note:
+    The final probability of class i used to be
+    compared to the threshold is equal to:
+    object socre x class probability.
 
     Parameters
     ----------
@@ -401,8 +565,8 @@ class YOLODetect(torch.nn.Module):
     pred[:,:,:2,:].sigmoid_()
     __x, __y = torch.meshgrid(
       [torch.arange(out_size[0]),torch.arange(out_size[1])])
-    pred[:,:,0,:] += __x.contiguous().view(1,-1).type(pred.dtype)
-    pred[:,:,1,:] += __y.contiguous().view(1,-1).type(pred.dtype)
+    pred[:,:,0,:] += __y.contiguous().view(1,-1).type(pred.dtype)
+    pred[:,:,1,:] += __x.contiguous().view(1,-1).type(pred.dtype)
     pred[:,:,0,:] *= ratio[0]
     pred[:,:,1,:] *= ratio[1]
 
@@ -466,54 +630,6 @@ class YOLO(torch.nn.Module):
     self.model = self.__make_yolo()
     self.set_weights(weights)
     if set_to_eval: self.model.eval()
-
-
-  def forward(self, inp):
-    """
-
-    Forward pass of YOLO detector.
-
-    Parameters
-    ----------
-    inp: torch.tensor
-    Input image as torch rank-4 tensor: batch x
-    channels x height x width.
-
-    """
-    __out = inp
-    detections = []
-    for __indx, __lay in enumerate(self.model):
-      if (isinstance(__lay, torch.nn.Sequential) or
-          isinstance(__lay, NearestInterp)):
-        __out = __lay(__out)
-      if isinstance(__lay, YOLORoute):
-        __out = __lay(self.feature_dict)
-      if isinstance(__lay, YOLODetect):
-        __out = __lay(__out, inp.shape[-2:])
-        detections.append(__out)
-      if __indx in self.feature_dict.keys():
-        self.feature_dict[__indx] = __out
-    return detections
-
-
-  def set_weights(self, weights):
-    """
-
-    Set YOLO model weights.
-
-    Parameters
-    ----------
-    weights: np.array
-    Array with model weights.
-
-    """
-    __c = 0
-    __convs = [l for l in self.model if self.__is_conv_block(l)]
-    for __i, __l in enumerate(__convs):
-      if self.__has_bn(__l):
-        __c = self.__set_conv_bn_weights(__l, weights, __c)
-      else:
-        __c = self.__set_conv_nobn_weights(__l, weights, __c)
 
 
   @property
@@ -618,6 +734,55 @@ class YOLO(torch.nn.Module):
     }
 
 
+  def forward(self, inp):
+    """
+
+    Forward pass of YOLO detector.
+
+    Parameters
+    ----------
+    inp: torch.tensor
+    Input image as torch rank-4 tensor: batch x
+    channels x height x width.
+
+    """
+    __out = inp
+    detections = []
+    for __indx, __lay in enumerate(self.model):
+      if (isinstance(__lay, YOLOConvBlock) or
+          isinstance(__lay, NearestInterp) or
+          isinstance(__lay, torch.nn.Sequential)):
+        __out = __lay(__out)
+      if isinstance(__lay, YOLORoute):
+        __out = __lay(self.feature_dict)
+      if isinstance(__lay, YOLODetect):
+        __out = __lay(__out, inp.shape[-2:])
+        detections.append(__out)
+      if __indx in self.feature_dict.keys():
+        self.feature_dict[__indx] = __out
+    return detections
+
+
+  def set_weights(self, weights):
+    """
+
+    Set YOLO model weights.
+
+    Parameters
+    ----------
+    weights: np.array
+    Array with model weights.
+
+    """
+    __c = 0
+    __convs = [l for l in self.model if isinstance(l,YOLOConvBlock)]
+    for __i, __l in enumerate(__convs):
+      if __l.batchnorm:
+        __c = self.__set_conv_bn_weights(__l, weights, __c)
+      else:
+        __c = self.__set_conv_nobn_weights(__l, weights, __c)
+
+
   def __parse_darknet_cfg(self, cfg_path):
     """
 
@@ -649,6 +814,8 @@ class YOLO(torch.nn.Module):
       }
     }
     ```
+
+    Notice that the value type is string.
 
     """
     __lines = utils.read_txt_as_strs(cfg_path, cmnt='#')
@@ -702,47 +869,6 @@ class YOLO(torch.nn.Module):
     return __secs
 
 
-  def __is_conv_block(self, inp):
-    """
-
-    Check if input is a convolutional block.
-
-    Parameters
-    ----------
-    block: torch.nn.Module
-    An input module.
-
-    Returns
-    ----------
-    bool
-    True if the the module is sequential block with
-    conv2d layer.
-
-    """
-    return (isinstance(inp, torch.nn.Sequential) and any(
-      [isinstance(__elem, torch.nn.Conv2d) for __elem in inp]))
-
-
-  def __has_bn(self, block):
-    """
-
-    Check if input block has batch normalization.
-
-    Parameters
-    ----------
-    block: torch.nn.Module
-    An input block.
-
-    Returns
-    ----------
-    bool
-    True if the the block contains conv2d layer.
-
-    """
-    return any(
-      [isinstance(__elem, torch.nn.BatchNorm2d) for __elem in block])
-
-
   def __set_conv_bn_weights(self, conv, warr, indx):
     """
 
@@ -750,7 +876,7 @@ class YOLO(torch.nn.Module):
 
     Parameters
     ----------
-    conv: torch.nn.Module
+    conv: YOLOConvBlock
     The input conv block.
 
     warr: np.array
@@ -766,11 +892,12 @@ class YOLO(torch.nn.Module):
     for next call to set weight.
 
     """
-    indx = self.__set_tensor(conv[1].bias        , warr, indx)
-    indx = self.__set_tensor(conv[1].weight, warr, indx)
-    indx = self.__set_tensor(conv[1].running_mean, warr, indx)
-    indx = self.__set_tensor(conv[1].running_var , warr, indx)
-    indx = self.__set_tensor(conv[0].weight, warr, indx)
+    __b = conv.conv_block
+    indx = self.__set_tensor(__b[1].bias        , warr, indx)
+    indx = self.__set_tensor(__b[1].weight, warr, indx)
+    indx = self.__set_tensor(__b[1].running_mean, warr, indx)
+    indx = self.__set_tensor(__b[1].running_var , warr, indx)
+    indx = self.__set_tensor(__b[0].weight, warr, indx)
     return indx
 
 
@@ -781,7 +908,7 @@ class YOLO(torch.nn.Module):
 
     Parameters
     ----------
-    conv: torch.nn.Module
+    conv: YOLOConvBlock
     The input conv block.
 
     warr: np.array
@@ -797,8 +924,9 @@ class YOLO(torch.nn.Module):
     for next call to set weight.
 
     """
-    indx = self.__set_tensor(conv[0].bias  , warr, indx)
-    indx = self.__set_tensor(conv[0].weight, warr, indx)
+    __b = conv.conv_block
+    indx = self.__set_tensor(__b[0].bias  , warr, indx)
+    indx = self.__set_tensor(__b[0].weight, warr, indx)
     return indx
 
 
@@ -836,40 +964,6 @@ class YOLO(torch.nn.Module):
     Create a pytorch 2D convolutional block
     from Darknet config.
 
-    A convolutional block consists of a convolution
-    layer optionally followed by batchnorm and
-    activation.
-
-    In Darknet, convolution layers do not have bias
-    if batch norma is present in the conv block.
-    (darknet master-30-oct-2018)
-
-    note:
-    When padding is involved, PyTorch and Darknet
-    seem to compute the output size in the same manner
-    (torch 0.4.1, darknet master-30 oct 2018):
-    out_size = (inp_size+2*padding -ksize)/stride+1
-    Fpr both frameworks, the same amount of padding
-    will be added on both side of each dimension of
-    the tensor. Darknet only supports zero-padding.
-
-    There can two parameters in darknet cfg file
-    representing padding:
-    1. The `padding` parameter indicates the amount
-       of padding to be added to each side of the
-       tensor.
-    2. The `pad` parameter does not indicate the
-       amount of padding, but indicates whether
-       padding will be performed. When set to a non
-       zero value, it invalidates the padding set
-       by`padding` parameter. In this case, the amount
-       of padding is equal to int(ksize/2).
-
-    In Darknet the epsilon parameter used to avoid
-    zero-division during batch norm is set to 1e-6,
-    different than 1e-5, the default value used in
-    pytorch.
-
     Parameters
     ----------
     conv_dict: dict
@@ -882,59 +976,25 @@ class YOLO(torch.nn.Module):
 
     Returns
     ----------
-    tuple
-    A tuple with the first element equal to the
-    number of output channels from the conv layer
-    and the second element representing a pytorch
-    2D convolution block as a Sequential container.
+    YOLOConvBlock
+    A YOLO convolutional block.
 
     """
     if self.dkn_conv['pad_size'] in conv_dict.keys():
       __pad = int(conv_dict[self.dkn_conv['pad_size']])
     if self.dkn_conv['pad_flag'] in conv_dict.keys():
       __pad = int(int(conv_dict[self.dkn_conv['ksize']])/2)
-
     __has_bn = (('batch_normalize' in conv_dict) and
                 int(conv_dict['batch_normalize']))
-    __l = [torch.nn.Conv2d(
-      in_channels=in_ch,
-      out_channels=int(conv_dict[self.dkn_conv['filters']]),
-      kernel_size=int(conv_dict[self.dkn_conv['ksize']]),
-      stride=int(conv_dict[self.dkn_conv['stride']]),
-      padding=__pad, bias=(not __has_bn))]
-    if __has_bn:
-      __l.append(torch.nn.BatchNorm2d(
-        num_features=__l[0].out_channels,eps=1e-6))
     __act = conv_dict['activation']
-    if (('activation' in conv_dict) and __act != 'linear'):
-      __l.append(self.__make_activation(__act))
-    return (__l[0].out_channels, torch.nn.Sequential(*__l))
-
-
-  def __make_activation(self, act_name):
-    """
-
-    Create a pytorch 2D convolutional layer
-    from Darknet config.
-
-    Parameters
-    ----------
-    act_name: str
-    Name of the activation function parsed
-    from Darknet config file.
-
-    Returns
-    ----------
-    torch.nn
-    A pytorch activation layer.
-
-    """
-    if act_name == 'leaky':
-      return torch.nn.LeakyReLU(
-        negative_slope=0.1, inplace=False)
-    else:
-      raise Exception(
-        'unknown activation: {}'.format(act_name))
+    return YOLOConvBlock(
+      in_ch,
+      int(conv_dict[self.dkn_conv['filters']]),
+      int(conv_dict[self.dkn_conv['ksize']]),
+      int(conv_dict[self.dkn_conv['stride']]),
+      conv_dict['activation'] if 'activation' in conv_dict else None,
+      __pad,
+      __has_bn)
 
 
   def __make_maxpool(self, pool_dict):
@@ -1057,7 +1117,8 @@ class YOLO(torch.nn.Module):
     for __indx, (__tag, __par) in enumerate(self.cfg[1].items()):
       __name = __tag[:str.find(__tag, '_')]
       if __name.startswith(self.dkn_layers['conv2d']):
-        __nchs, __lay = self.__make_conv_block(__par, __nchs)
+        __lay = self.__make_conv_block(__par, __nchs)
+        __nchs = __lay.out_channels
       elif __name.startswith(self.dkn_layers['up']):
         __lay = self.__make_upsample(__par)
       elif __name.startswith(self.dkn_layers['skip']):
