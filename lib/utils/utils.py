@@ -34,11 +34,12 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Sun Dec  9 22:23:17 2018 Zhijin Li
+## Last update Mon Dec 10 23:01:20 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
 import os
+import cv2
 import torch
 import numpy as np
 
@@ -146,7 +147,7 @@ def make_predict_inp(
     target_size=None,
     normalize=True,
     permute_br=True,
-    channel_first=False):
+    to_channel_first=False):
   """
 
   Transform an image for TF prediction mode.
@@ -171,7 +172,7 @@ def make_predict_inp(
   networks assumes input to be RGB ordering. Defaults
   to True.
 
-  channel_first: bool
+  to_channel_first: bool
   When set to true, the input image will be
   converted to `channel_first` ordering. Defaults to
   False.
@@ -190,7 +191,7 @@ def make_predict_inp(
   if permute_br:
     img[:,:,0], img[:,:,2] = img[:,:,2], img[:,:,0].copy()
   img = np.expand_dims(img.astype(np.float32), axis=0)
-  if channel_first:
+  if to_channel_first:
     return img.transpose(0,3,1,2)
   return img
 
@@ -278,7 +279,7 @@ def classify_frame(
     label_dict,
     normalize=True,
     permute_br=True,
-    channel_first=False,
+    to_channel_first=False,
     verbose=True):
   """
 
@@ -315,7 +316,7 @@ def classify_frame(
   networks assumes input to be RGB ordering. Defaults
   to True.
 
-  channel_first: bool
+  to_channel_first: bool
   When set to true, the input image will be
   converted to `channel_first` ordering. Defaults to
   False.
@@ -334,7 +335,8 @@ def classify_frame(
     scores.
 
   """
-  inp = make_predict_inp(frame, target_size, normalize)
+  inp = make_predict_inp(
+    frame,target_size,normalize,permute_br,to_channel_first)
   top_labs, top_scrs = predict_top(
     model, inp, top_classes, label_dict)
   if verbose:
@@ -378,6 +380,91 @@ def load_dkn_weights(w_path, dtype, skip_bytes=20):
   return __content
 
 
+def letterbox_image(img, frame_size, fill=0.5, normalize=True):
+  """
+
+  Letter box an input image.
+
+  Image will be centered into a squared frame,
+  where the longer side of the image is resized
+  to the frame size and the shorter side is resized
+  by keepng the same aspect ratio.
+
+  Parameters
+  ----------
+  img: np.array
+  The input image. Assumed to be rank-3, channel-last.
+
+  frame_size: int
+  Size of the square frame.
+
+  fill: float
+  Value used to fill empty border. Defaults to 0.5.
+
+  normalize: bool
+  Whether input image should be divided by 255.
+
+  Returns
+  ----------
+  tuple
+  1. The letter boxed image.
+  2. Horizontal and vertical shift in number of pixels
+     with respect to square frame size.
+  3. The resize ratio: box size/ original longer side.
+
+  """
+  if normalize: img = img.astype(np.float32)/255.0
+  __lindx = np.argmax(img.shape[:2])
+  __ratio = frame_size/img.shape[:2][__lindx]
+  __rsize = (np.array(img.shape[:2])*__ratio).astype(np.int32)
+  __shift = np.array([frame_size]*2, dtype=np.int32) - __rsize
+  __shift = (__shift/2).astype(np.int32)
+
+  __rsimg = torch.nn.functional.interpolate(
+    torch.from_numpy(img).permute(2,0,1).unsqueeze(0),
+    size=(__rsize[0], __rsize[1]), mode='bilinear', align_corners=True)
+  __rsimg = __rsimg.squeeze().permute(1,2,0)
+
+  __ltbox = np.ones((frame_size, frame_size, img.shape[2]))*fill
+  __ltbox[__shift[0]:__shift[0]+__rsize[0],
+          __shift[1]:__shift[1]+__rsize[1],:] = __rsimg
+  return (__ltbox.astype(np.float32), np.flip(__shift).copy(), __ratio)
+
+
+def correct_bboxes(dets, shift, ratio):
+  """
+
+  Correct bounding box centers and scales
+  to match original input image before
+  letter boxing.
+
+  Parameters
+  ----------
+  dets: torch.tensor
+  A rank-2 tensor, where each row is a size-7
+  vector representing a detection bounding box.
+  The meaning of each element in the vector is
+  as follows:
+  1. bbox begin point x coordinate.
+  2. bbox begin point y coordinate.
+  3. bbox width.
+  4. bbox height.
+  5. objectness score.
+  6. max class probability.
+  7. class index of the corresponding max prob.
+
+  shift: np.array
+  Horizontal and vertical shift in number of pixels
+  with respect to square frame size.
+
+  ratio
+  The resize ratio: box size/ original longer side.
+
+  """
+  dets[:2,:] -= torch.from_numpy(shift).float().view(2,1)
+  dets[:4,:] /= ratio
+
+
 def nms(dets, nms_thresh):
   """
 
@@ -387,7 +474,12 @@ def nms(dets, nms_thresh):
   return dets
 
 
-def detect_frame(model, frame, obj_thresh=0.5, nms_thresh=None):
+def detect_frame(
+    model,
+    frame,
+    obj_thresh=0.5,
+    nms_thresh=None,
+    box_correction=None):
   """
 
   Detect objects in a frame.
@@ -406,6 +498,15 @@ def detect_frame(model, frame, obj_thresh=0.5, nms_thresh=None):
 
   nms_thresh: float
   Threshold on IOU used during nms.
+
+  box_correction: tuple or None
+  A tuple of (shift, ratio) parameters used to
+  perform letter box correction to bring the
+  centers and scale of the bounding boxes to
+  match the original image before letter boxing.
+  This need to be set if bounding boxes are plotted
+  into the original image before letter boxing.
+  Defaults to None, indicating no correction.
 
   Returns
   ----------
@@ -432,8 +533,11 @@ def detect_frame(model, frame, obj_thresh=0.5, nms_thresh=None):
       __p[:5,:], __mprb.unsqueeze(0),
       __midx.type(torch.FloatTensor).unsqueeze(0)],0)
     __b = __b[:, (__b[4,:]*__b[5,:] > obj_thresh)]
-    __b[:2,:] -= __b[2:4,:]/2.0
-    __boxes.append(__b)
+    if __b.numel():
+      __b[:2,:] -= __b[2:4,:]/2.0
+      __boxes.append(__b)
+  if len(__boxes) == 0: return None
   __dets = torch.cat(__boxes, dim=1)
-  if nms_thresh: dets = nms(dets, nms_thresh)
+  if nms_thresh: __dets = nms(__dets, nms_thresh)
+  if box_correction: correct_bboxes(__dets, *box_correction)
   return __dets

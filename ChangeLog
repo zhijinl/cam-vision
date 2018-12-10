@@ -1,5 +1,8 @@
 2018-12-10  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* lib/utils/utils.py: Implement letterbox transformation and bbox
+	correction.
+
 	* lib/utils/capture.py: Make better prediction frame.
 
 2018-12-09  Zhijin Li  <jonathan.zj.lee@gmail.com>
