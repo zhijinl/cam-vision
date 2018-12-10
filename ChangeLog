@@ -1,5 +1,8 @@
 2018-12-10  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* lib/utils/capture.py: Adapt detection frame to letterbox and
+	corrected images.
+
 	* lib/utils/utils.py: Implement letterbox transformation and bbox
 	correction.
 

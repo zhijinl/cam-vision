@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Mon Dec 10 22:29:33 2018 Zhijin Li
+## Last update Mon Dec 10 23:18:06 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -284,7 +284,11 @@ def make_pred_frame(frame, labels, scores):
   return np.concatenate((frame, __pframe), axis=0)
 
 
-def make_detection_frame(img, dets, classes):
+def make_detection_frame(
+    img,
+    dets,
+    classes,
+    letterbox=False):
   """
 
   Create a frame visualizing detection result.
@@ -302,14 +306,23 @@ def make_detection_frame(img, dets, classes):
   classes: list
   A list of coco class string names.
 
+  letterbox: bool
+  Boolean indicating whether the input frame is
+  letter boxed. Default to false.
+
   Returns
   ----------
   np.array
   A frame/image visualizing detection result.
 
   """
+
+  if letterbox:
+    __wl, __h, __w, __s, __v = 8, 20, 97, 0.4, 5
+  else:
+    __wl, __h, __w, __s, __v = 8, 35, 170, 0.7, 9
   __low, __high = 0, 255
-  __wl, __h, __w = 8, 20, 97
+
   for __indx, __b in enumerate(dets.detach().t()):
     __c = [
       np.random.randint(__low, __high),
@@ -330,8 +343,8 @@ def make_detection_frame(img, dets, classes):
     cv2.putText(
       img, '{} {:.3f}'.format(
         classes[int(__b[-1])][:__wl], __b[4]*__b[5]),
-      (__b[0]+3, __b[1]-5), cv2.FONT_HERSHEY_TRIPLEX,
-      0.4, (0, 0, 0), lineType=cv2.LINE_AA)
+      (__b[0]+3, __b[1]-__v), cv2.FONT_HERSHEY_DUPLEX,
+      __s, (0, 0, 0), lineType=cv2.LINE_AA)
   return img
 
 
