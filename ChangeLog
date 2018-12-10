@@ -2,6 +2,7 @@
 
 	* lib/utils/capture.py: Adapt detection frame to letterbox and
 	corrected images.
+	Bug fix in detection frame.
 
 	* lib/utils/utils.py: Implement letterbox transformation and bbox
 	correction.

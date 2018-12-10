@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Mon Dec 10 23:18:06 2018 Zhijin Li
+## Last update Mon Dec 10 23:39:20 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -336,14 +336,17 @@ def make_detection_frame(
        __b[1] + __b[3]), # height
       color=__c, thickness=2)
 
+    __x, __y = int(__b[1]), int(__b[0])-1
+    if int(__b[1])-__h < 0: __x = int(__b[1] + __b[3])
+    if int(__b[0])-1 < 0  : __y = 0
+
     __bkg = np.tile(__c,[__w*__h,1]).reshape(__h, __w, 3)
-    img[int(__b[1])-__h:int(__b[1]),
-        int(__b[0])-1:int(__b[0])+__w-1,:] = __bkg
+    img[__x-__h:__x, __y:__y+__w,:] = __bkg
 
     cv2.putText(
       img, '{} {:.3f}'.format(
         classes[int(__b[-1])][:__wl], __b[4]*__b[5]),
-      (__b[0]+3, __b[1]-__v), cv2.FONT_HERSHEY_DUPLEX,
+      (__y+5, __x-__v), cv2.FONT_HERSHEY_DUPLEX,
       __s, (0, 0, 0), lineType=cv2.LINE_AA)
   return img
 
