@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Sun Dec  9 22:19:06 2018 Zhijin Li
+## Last update Mon Dec 10 22:29:33 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -64,7 +64,6 @@ class FastVideoStream():
 
     """
     self.video_stream = cv2.VideoCapture(video_src)
-    # self.video_stream.set(cv2.CAP_PROP_FPS, 5)
     self.success, self.frame = self.video_stream.read()
     self.finished = False
 
@@ -164,6 +163,42 @@ def trim_frame_square(frame, resize_ratio, trim_factor):
   else:
     frame = frame[__i:__i+__t,:,:]
   return frame
+
+
+def trim_frame_square2(frame, target_size=None):
+  """
+
+  Trim a frame to square shape then resize to target
+  size. Nearest neighbor interpolation is used for resizing.
+
+  Parameters
+  ----------
+  frame: np.array
+  The input frame
+
+  target_size: int or None
+  Target size for resizing. Defaults to None, indicating
+  than the frame will not be resized after trimming.
+
+  Returns
+  ----------
+  np.array
+  Trimmed and resized frame.
+
+  """
+  __hor_longer, __l, __s = (
+    True, frame.shape[1], frame.shape[0]
+    if frame.shape[1] > frame.shape[0]
+    else (False, frame.shape[0], frame.shape[1]))
+  __i = int((__l-__s)/2)
+  if __hor_longer:
+    frame = frame[:,__i:__i+__s,:]
+  else:
+    frame = frame[__i:__i+__s,:,:]
+  if target_size:
+    frame = cv2.resize(frame, dsize=(target_size,target_size))
+  return frame
+
 
 
 def print_fps(frame, fps):
@@ -274,22 +309,29 @@ def make_detection_frame(img, dets, classes):
 
   """
   __low, __high = 0, 255
-  for __indx, __b in enumerate(dets.t()):
+  __wl, __h, __w = 8, 20, 97
+  for __indx, __b in enumerate(dets.detach().t()):
     __c = [
       np.random.randint(__low, __high),
       np.random.randint(__low, __high),
       np.random.randint(__low, __high)]
+
     img = cv2.rectangle(
       img,
       (__b[0], __b[1]),
-      (__b[0] + __b[2],
-       __b[1] + __b[3]),
+      (__b[0] + __b[2],  # width
+       __b[1] + __b[3]), # height
       color=__c, thickness=2)
+
+    __bkg = np.tile(__c,[__w*__h,1]).reshape(__h, __w, 3)
+    img[int(__b[1])-__h:int(__b[1]),
+        int(__b[0])-1:int(__b[0])+__w-1,:] = __bkg
+
     cv2.putText(
       img, '{} {:.3f}'.format(
-        classes[int(__b[-1])], __b[4]*__b[5]),
-      (__b[0], __b[1]-5), cv2.FONT_HERSHEY_TRIPLEX,
-      0.4, __c, lineType=cv2.LINE_AA)
+        classes[int(__b[-1])][:__wl], __b[4]*__b[5]),
+      (__b[0]+3, __b[1]-5), cv2.FONT_HERSHEY_TRIPLEX,
+      0.4, (0, 0, 0), lineType=cv2.LINE_AA)
   return img
 
 
