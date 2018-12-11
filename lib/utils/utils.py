@@ -34,12 +34,13 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Tue Dec 11 22:48:49 2018 Zhijin Li
+## Last update Wed Dec 12 00:18:35 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
 import os
 import cv2
+import glob
 import torch
 import numpy as np
 
@@ -147,6 +148,7 @@ def make_predict_inp(
     target_size=None,
     normalize=True,
     permute_br=True,
+    letter_box=None,
     to_channel_first=False):
   """
 
@@ -172,6 +174,11 @@ def make_predict_inp(
   networks assumes input to be RGB ordering. Defaults
   to True.
 
+  letter_box: tuple or None
+  Side length and fill value of the square box when
+  performing letter box transformation of the image.
+  Default to None indicating no letter box transformation.
+
   to_channel_first: bool
   When set to true, the input image will be
   converted to `channel_first` ordering. Defaults to
@@ -190,9 +197,12 @@ def make_predict_inp(
     img = img.astype(np.float32) / 255.0
   if permute_br:
     img[:,:,0], img[:,:,2] = img[:,:,2], img[:,:,0].copy()
+  if letter_box:
+    img, shift, ratio = letterbox_image(
+      img, letter_box[0], fill=letter_box[1], normalize=False)
   img = np.expand_dims(img.astype(np.float32), axis=0)
-  if to_channel_first:
-    return img.transpose(0,3,1,2)
+  if to_channel_first: img = img.transpose(0,3,1,2)
+  if letter_box: return (img, shift, ratio)
   return img
 
 
@@ -378,6 +388,49 @@ def load_dkn_weights(w_path, dtype, skip_bytes=20):
     __wf.seek(skip_bytes, 0)
     __content = np.fromfile(__wf, dtype)
   return __content
+
+
+def load_img_folder(
+    folder,
+    ext,
+    permute_br=True,
+    normalize=True):
+  """
+
+  Load all images inside given folder.
+
+  Parameters
+  ----------
+  folder: str
+  Absolute folder to image folder.
+
+  ext: str
+  Image file extension. Must be recognizable by
+  OpenCV.
+
+  permute_br: bool
+  Whether blue and red channel permutation should
+  be performed.
+
+  normalize: bool
+  Indicating whether the image pixel value should
+  be divided by 255.0.
+
+  Returns
+  ----------
+  tuple(list)
+  The image (np.array) list and path list.
+
+  """
+  __imgs = []
+  __plst = glob.glob(os.path.join(folder,'*.{}'.format(ext)))
+  for __p in __plst:
+    __img = cv2.imread(__p, cv2.IMREAD_UNCHANGED)
+    if normalize: __img = __img/255.0
+    if permute_br:
+      __img[:,:,0],__img[:,:,2] = __img[:,:,2],__img[:,:,0].copy()
+    __imgs.append(__img)
+  return __imgs, __plst
 
 
 def letterbox_image(img, frame_size, fill=0.5, normalize=True):
