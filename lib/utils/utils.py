@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Mon Dec 10 23:01:20 2018 Zhijin Li
+## Last update Tue Dec 11 22:48:49 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -441,7 +441,7 @@ def correct_bboxes(dets, shift, ratio):
   Parameters
   ----------
   dets: torch.tensor
-  A rank-2 tensor, where each row is a size-7
+  A rank-2 tensor, where each col is a size-6
   vector representing a detection bounding box.
   The meaning of each element in the vector is
   as follows:
@@ -449,9 +449,8 @@ def correct_bboxes(dets, shift, ratio):
   2. bbox begin point y coordinate.
   3. bbox width.
   4. bbox height.
-  5. objectness score.
-  6. max class probability.
-  7. class index of the corresponding max prob.
+  5. max proba = max class proba * objectness score.
+  6. class index of the corresponding max proba.
 
   shift: np.array
   Horizontal and vertical shift in number of pixels
@@ -470,8 +469,68 @@ def nms(dets, nms_thresh):
 
   Do non-maximum suppression.
 
+  Parameters
+  ----------
+  dets: torch.tensor
+  A rank-2 tensor, where each col is a size-6
+  vector representing a detection bounding box.
+  The meaning of each element in the vector is
+  as follows:
+  1. bbox begin point x coordinate.
+  2. bbox begin point y coordinate.
+  3. bbox width.
+  4. bbox height.
+  5. max proba = max class proba * objectness score.
+  6. class index of the corresponding max proba.
+
+  nms_thresh: float
+  NMS threshold.
+
+  Returns
+  ----------
+  torch.tensor
+  New bounding box attributed with boxes having
+  high IOU with the top prediction sppressed.
+
   """
-  return dets
+  __book = {}
+  __, __ord = torch.sort(dets[4,:], descending=True)
+  __dets, __cls = dets[:,__ord], set(dets[-1,:])
+  for __i, __c in enumerate(__dets[-1,:]):
+    if int(__c) not in __book: __book[int(__c)] = __i
+    else:
+      __iou = compute_iou(__dets[:4,__i], __dets[:4,__book[int(__c)]])
+      if __iou > nms_thresh: __dets[4,__i] = -1
+  return __dets[:, __dets[4,:] >= 0]
+
+
+def compute_iou(lhs, rhs):
+  """
+
+  Compute the intersection over union of two
+  bounding boxes.
+
+  Parameters
+  ----------
+  lhs: torch.tensor
+  Bounding box 1.
+
+  rhs: torch.tensor
+  Bounding box 2.
+
+  Returns
+  ----------
+  float
+  The intersection over union.
+
+  """
+  __beg = np.array([max(lhs[0], rhs[0]), max(lhs[1], rhs[1])])
+  __end = np.array([min(lhs[0]+lhs[2], rhs[0]+rhs[2]),
+                    min(lhs[1]+lhs[3], rhs[1]+rhs[3])])
+  __num = np.prod(__end-__beg)
+  if __num <= 0: return 0
+  __den = lhs[2]*lhs[3]+rhs[2]*rhs[3] - __num
+  return __num/__den
 
 
 def detect_frame(
@@ -511,7 +570,7 @@ def detect_frame(
   Returns
   ----------
   torch.tensor
-  A rank-2 tensor, where each row is a size-7
+  A rank-2 tensor, where each col is a size-6
   vector representing a detection bounding box.
   The meaning of each element in the vector is
   as follows:
@@ -519,9 +578,8 @@ def detect_frame(
   2. bbox begin point y coordinate.
   3. bbox width.
   4. bbox height.
-  5. objectness score.
-  6. max class probability.
-  7. class index of the corresponding max prob.
+  5. max proba = max class proba * objectness score.
+  6. class index of the corresponding max proba.
 
   """
   __detections = model(frame)
@@ -529,10 +587,10 @@ def detect_frame(
   for __d in __detections:
     __p = __d.permute(0,2,1,3).contiguous().view(__d.shape[2],-1)
     __mprb, __midx = torch.max(__p[5:,:],dim=0)
+    __p[4,:] *= __mprb              # obj_score * max class proba
     __b = torch.cat([
-      __p[:5,:], __mprb.unsqueeze(0),
-      __midx.type(torch.FloatTensor).unsqueeze(0)],0)
-    __b = __b[:, (__b[4,:]*__b[5,:] > obj_thresh)]
+      __p[:5,:], __midx.type(torch.FloatTensor).unsqueeze(0)],0)
+    __b = __b[:, (__b[4,:] > obj_thresh)]
     if __b.numel():
       __b[:2,:] -= __b[2:4,:]/2.0
       __boxes.append(__b)

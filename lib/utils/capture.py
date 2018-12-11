@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Mon Dec 10 23:39:20 2018 Zhijin Li
+## Last update Tue Dec 11 22:01:49 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -302,6 +302,16 @@ def make_detection_frame(
 
   dets: torch.tensor
   Bounding box tensor return by `detect_frame`.
+  A rank-2 tensor, where each col is a size-6
+  vector representing a detection bounding box.
+  The meaning of each element in the vector is
+  as follows:
+  1. bbox begin point x coordinate.
+  2. bbox begin point y coordinate.
+  3. bbox width.
+  4. bbox height.
+  5. max proba = max class proba * objectness score.
+  6. class index of the corresponding max proba.
 
   classes: list
   A list of coco class string names.
@@ -345,7 +355,7 @@ def make_detection_frame(
 
     cv2.putText(
       img, '{} {:.3f}'.format(
-        classes[int(__b[-1])][:__wl], __b[4]*__b[5]),
+        classes[int(__b[-1])][:__wl], __b[4]),
       (__y+5, __x-__v), cv2.FONT_HERSHEY_DUPLEX,
       __s, (0, 0, 0), lineType=cv2.LINE_AA)
   return img
