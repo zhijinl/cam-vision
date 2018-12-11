@@ -1,3 +1,7 @@
+2018-12-12  Zhijin Li  <jonathan.zj.lee@gmail.com>
+
+	* lib/utils/capture.py: Correct detection drawing bounding error.
+
 2018-12-11  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
 	* lib/utils/utils.py (nms): Implement nms.

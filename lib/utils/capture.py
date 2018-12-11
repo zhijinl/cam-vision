@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Tue Dec 11 22:01:49 2018 Zhijin Li
+## Last update Wed Dec 12 00:15:52 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -288,7 +288,8 @@ def make_detection_frame(
     img,
     dets,
     classes,
-    letterbox=False):
+    letterbox=False,
+    box_thickness=3):
   """
 
   Create a frame visualizing detection result.
@@ -320,6 +321,9 @@ def make_detection_frame(
   Boolean indicating whether the input frame is
   letter boxed. Default to false.
 
+  box_thickness: int
+  Thickness of bounding box drawing.
+
   Returns
   ----------
   np.array
@@ -344,14 +348,12 @@ def make_detection_frame(
       (__b[0], __b[1]),
       (__b[0] + __b[2],  # width
        __b[1] + __b[3]), # height
-      color=__c, thickness=2)
+      color=__c, thickness=box_thickness)
 
-    __x, __y = int(__b[1]), int(__b[0])-1
-    if int(__b[1])-__h < 0: __x = int(__b[1] + __b[3])
-    if int(__b[0])-1 < 0  : __y = 0
-
-    __bkg = np.tile(__c,[__w*__h,1]).reshape(__h, __w, 3)
-    img[__x-__h:__x, __y:__y+__w,:] = __bkg
+    __x, __y = int(__b[1]), int(__b[0])-2
+    if __x-__h < 0: __x = int(__b[1] + __b[3])
+    if __y < 0  : __y = 0
+    img[__x-__h:__x, __y:__y+__w,:] = __c
 
     cv2.putText(
       img, '{} {:.3f}'.format(
