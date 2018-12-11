@@ -34,30 +34,74 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:52:48 2018 Zhijin Li
-## Last update Wed Nov 21 22:08:54 2018 Zhijin Li
+## Last update Wed Dec 12 00:17:38 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
 import os
 import cv2
 import time
+import torch
 import numpy as np
 from lib import yolov3tiny as net
 from lib.utils import utils as utils
 from lib.utils import capture as cap
+import matplotlib.pyplot as plt
 
 
+IMG_HEIGHT = 416
+IMG_WIDTH  = 416
 N_CHANNELS = 3
 
-WIDTH_MULTIPLIER = 1
-TOP_CLASSES      = 5
-TARGET_SIZE      = None
-POOLING_TYPE     = 'global_avg'
+OBJ_THRESHOLD = 0.5
+NMS_THRESHOLD = 0.45
 
-VERBOSE          = False
-SKIP_FRAMES      = 60
-DARKNET_CFG      =  './data/model/yolov3tiny/yolov3-tiny.cfg'
-
+SKIP_FRAMES      = 10
+DARKNET_CFG      = './data/model/yolov3tiny/yolov3-tiny.cfg'
+YOLOV3_TINY_W    = './data/model/yolov3tiny/yolov3-tiny.weights'
+COCO_CLASSES     = './data/coco/coco.names'
+TEST_IMG_DIR     = os.path.join(
+  os.path.dirname(os.path.abspath(__file__)), 'data/darknet-test-images')
 
 if __name__ == '__main__':
-  cfg = net.YOLO(DARKNET_CFG, N_CHANNELS)
+
+  weights = utils.load_dkn_weights(YOLOV3_TINY_W, np.float32)
+  yolo = net.YOLO(DARKNET_CFG, N_CHANNELS, weights)
+  coco_classes = utils.read_txt_as_strs(COCO_CLASSES)
+  # print(yolo)
+
+  imgs, paths = utils.load_img_folder(
+    TEST_IMG_DIR,
+    ext='jpg',
+    permute_br=True,
+    normalize=False)
+
+  for indx, img in enumerate(imgs):
+
+    __start = time.time()
+
+    img_ltb, shift, ratio = utils.make_predict_inp(
+      img,
+      target_size=None,
+      normalize=True,
+      permute_br=False,
+      letter_box=(IMG_HEIGHT, 0.5),
+      to_channel_first=True)
+
+    dets = utils.detect_frame(
+      yolo,
+      torch.FloatTensor(img_ltb),
+      obj_thresh=OBJ_THRESHOLD,
+      nms_thresh=NMS_THRESHOLD,
+      box_correction=(shift, ratio))
+
+    if dets is not None:
+      img = cap.make_detection_frame(img, dets, coco_classes)
+
+    print('img: {:20s} - prediction time: {:.3f} s'.format(
+      os.path.basename(paths[indx]),
+      time.time() - __start))
+
+    plt.figure()
+    plt.imshow(img)
+  plt.show()

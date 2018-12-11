@@ -1,5 +1,7 @@
 2018-12-12  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* cam-detect.py: Test on Darknet images.
+
 	* lib/utils/utils.py: Implement batch image loader.
 
 	* lib/utils/capture.py: Correct detection drawing bounding error.
