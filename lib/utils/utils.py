@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Wed Dec 12 00:18:35 2018 Zhijin Li
+## Last update Wed Dec 12 21:12:00 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -481,7 +481,8 @@ def letterbox_image(img, frame_size, fill=0.5, normalize=True):
   __ltbox = np.ones((frame_size, frame_size, img.shape[2]))*fill
   __ltbox[__shift[0]:__shift[0]+__rsize[0],
           __shift[1]:__shift[1]+__rsize[1],:] = __rsimg
-  return (__ltbox.astype(np.float32), np.flip(__shift).copy(), __ratio)
+  return (__ltbox.astype(np.float32),
+          np.flip(__shift, axis=0).copy(), __ratio)
 
 
 def correct_bboxes(dets, shift, ratio):

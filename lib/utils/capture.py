@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Wed Dec 12 00:15:52 2018 Zhijin Li
+## Last update Wed Dec 12 21:11:18 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -125,7 +125,7 @@ class FastVideoStream():
     self.finished = True
 
 
-def trim_frame_square(frame, resize_ratio, trim_factor):
+def trim_resize_frame(frame, resize_ratio, trim_factor):
   """
 
   Resize a frame according to specified ratio while
@@ -165,7 +165,7 @@ def trim_frame_square(frame, resize_ratio, trim_factor):
   return frame
 
 
-def trim_frame_square2(frame, target_size=None):
+def trim_resize_frame_square(frame, target_size=None):
   """
 
   Trim a frame to square shape then resize to target
@@ -198,7 +198,6 @@ def trim_frame_square2(frame, target_size=None):
   if target_size:
     frame = cv2.resize(frame, dsize=(target_size,target_size))
   return frame
-
 
 
 def print_fps(frame, fps):

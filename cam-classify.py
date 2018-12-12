@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 15:09:53 2018 Zhijin Li
-## Last update Sat Dec  8 22:43:35 2018 Zhijin Li
+## Last update Wed Dec 12 21:13:36 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -53,6 +53,7 @@ TARGET_SIZE      = None
 POOLING_TYPE     = 'global_avg'
 
 VERBOSE          = False
+FRAME_SIZE       = 366
 SKIP_FRAMES      = 60
 IMAGENET_TXT     =  './data/imagenet/imagenet_dict.npy'
 
@@ -75,7 +76,7 @@ if __name__ == '__main__':
     __start = time.time()
 
     frame = stream.get_frame()
-    frame = cap.trim_frame_square(frame, .55, 0.5625)
+    frame = cap.trim_resize_frame_square(frame, FRAME_SIZE)
 
     if (counter % SKIP_FRAMES) == 0:
       top_labs, top_scrs = utils.classify_frame(
