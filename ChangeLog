@@ -1,5 +1,7 @@
 2018-12-13  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* cam-detect.py: Implement real-time cam detection.
+
 	* lib/yolov3tiny.py (detect_color_img): Refactorize detection
 	APIs.
 

@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:52:48 2018 Zhijin Li
-## Last update Wed Dec 12 00:17:38 2018 Zhijin Li
+## Last update Wed Dec 12 22:24:24 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -42,6 +42,7 @@ import os
 import cv2
 import time
 import torch
+import argparse
 import numpy as np
 from lib import yolov3tiny as net
 from lib.utils import utils as utils
@@ -49,8 +50,7 @@ from lib.utils import capture as cap
 import matplotlib.pyplot as plt
 
 
-IMG_HEIGHT = 416
-IMG_WIDTH  = 416
+FRAME_SIZE = 416
 N_CHANNELS = 3
 
 OBJ_THRESHOLD = 0.5
@@ -63,45 +63,75 @@ COCO_CLASSES     = './data/coco/coco.names'
 TEST_IMG_DIR     = os.path.join(
   os.path.dirname(os.path.abspath(__file__)), 'data/darknet-test-images')
 
+
 if __name__ == '__main__':
 
-  weights = utils.load_dkn_weights(YOLOV3_TINY_W, np.float32)
-  yolo = net.YOLO(DARKNET_CFG, N_CHANNELS, weights)
-  coco_classes = utils.read_txt_as_strs(COCO_CLASSES)
-  # print(yolo)
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--run_test', action='store_true')
+  args = parser.parse_args()
 
-  imgs, paths = utils.load_img_folder(
-    TEST_IMG_DIR,
-    ext='jpg',
-    permute_br=True,
-    normalize=False)
+  yolo, coco_classes = net.init_detector(
+    DARKNET_CFG,YOLOV3_TINY_W,COCO_CLASSES, N_CHANNELS)
 
-  for indx, img in enumerate(imgs):
+  if args.run_test:
 
-    __start = time.time()
+    imgs, paths = utils.load_img_folder(
+      TEST_IMG_DIR,
+      ext='jpg',
+      permute_br=True,
+      normalize=False)
 
-    img_ltb, shift, ratio = utils.make_predict_inp(
-      img,
-      target_size=None,
-      normalize=True,
-      permute_br=False,
-      letter_box=(IMG_HEIGHT, 0.5),
-      to_channel_first=True)
+    for indx, img in enumerate(imgs):
 
-    dets = utils.detect_frame(
-      yolo,
-      torch.FloatTensor(img_ltb),
-      obj_thresh=OBJ_THRESHOLD,
-      nms_thresh=NMS_THRESHOLD,
-      box_correction=(shift, ratio))
+      img = net.detect_color_img(
+        model=yolo,
+        img=img,
+        classes=coco_classes,
+        obj_threshold=OBJ_THRESHOLD,
+        iou_threshold=NMS_THRESHOLD,
+        box_size=FRAME_SIZE,
+        permute_br=False,
+        normalize=True,
+        verbose=True)
 
-    if dets is not None:
-      img = cap.make_detection_frame(img, dets, coco_classes)
+      plt.figure()
+      plt.imshow(img)
+    plt.show()
 
-    print('img: {:20s} - prediction time: {:.3f} s'.format(
-      os.path.basename(paths[indx]),
-      time.time() - __start))
+  else:
 
-    plt.figure()
-    plt.imshow(img)
-  plt.show()
+    fps = 0
+    counter = 0
+    stream = cap.FastVideoStream(0).read_frames()
+
+    dets = None
+    bboxes = None
+    while True:
+      __start = time.time()
+
+      frame = stream.get_frame()
+      frame = cap.trim_resize_frame_square(frame, FRAME_SIZE)
+
+      if (counter % SKIP_FRAMES) == 0:
+        img = utils.make_predict_inp(
+          frame,
+          target_size=None,
+          normalize=True,
+          permute_br=True,
+          to_channel_first=True)
+        dets = utils.detect_frame(
+          yolo, torch.FloatTensor(img), OBJ_THRESHOLD, NMS_THRESHOLD)
+
+      if dets is not None:
+        frame = cap.make_detection_frame(frame, dets, coco_classes)
+      cap.print_fps(frame, fps)
+      cv2.imshow('Cam Classifier', frame)
+
+      if cv2.waitKey(1) == ord('q'):
+        stream.stop()
+        break
+
+      fps = 1.0/(time.time()-__start)
+      counter += 1
+
+    cv2.destroyAllWindows()
