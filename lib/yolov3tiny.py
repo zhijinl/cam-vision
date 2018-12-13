@@ -34,15 +34,131 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Mon Dec 10 21:49:42 2018 Zhijin Li
+## Last update Wed Dec 12 22:01:24 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
+import time
 import torch
 import torchvision
 import collections
 import numpy as np
 from .utils import utils as utils
+from .utils import capture as cap
+
+
+def init_detector(cfg_path, weight_path, class_path, n_channels):
+  """
+
+  Initialization of detector.
+
+  Parameters
+  ----------
+  cfg_path: str
+  Path to YOLO config file.
+
+  weight_path: str
+  Path to YOLO weight file.
+
+  class_path: str
+  Path to ground truth class file.
+
+  n_channels: int
+  Number of channels in input image.
+
+  Returns
+  ----------
+  tuple
+  The loaded YOLO model and ground truth class list.
+
+  """
+  weights = utils.load_dkn_weights(weight_path,np.float32)
+  yolo = YOLO(cfg_path, n_channels, weights)
+  classes = utils.read_txt_as_strs(class_path)
+  return yolo, classes
+
+
+def detect_color_img(
+    model,
+    img,
+    classes,
+    obj_threshold,
+    iou_threshold,
+    box_size=None,
+    permute_br=False,
+    normalize=True,
+    verbose=True):
+  """
+
+  Detect an input OpenCV RGB image.
+
+  Parameters
+  ----------
+  model: YOLO
+  The YOLO detector model.
+
+  img: np.array
+  The input OpenCV image. Assumed to be BGR ordering
+  with pixel value between 0 and 255.
+
+  class: list
+  List of object classes.
+
+  box_size: int or None
+  Target size for YOLO letter boxing. None indicates
+  that letter boxing will not be performed.
+
+  permute_br: bool
+  Whether permutation of the Blue and Red
+  channels should be performed. This is generally
+  needed when the input image is read using OpenCV,
+  since OpenCV uses BGR ordering, while most neural
+  networks assumes input to be RGB ordering. Defaults
+  to True.
+
+  normalize: bool
+  Whether input image should be divided by 255.
+
+  obj_thresh: float
+  Threshold for objectness and class predition score.
+
+  iou_threshold: float
+  Threshold for IOU during NMS.
+
+  verbose: bool
+  Whether processing time will be logged on console.
+  Defaults to true.
+
+  Returns
+  ----------
+  Frame with detection result.
+
+  """
+  if verbose: __start = time.time()
+
+  pred = utils.make_predict_inp(
+    img,
+    target_size=None,
+    normalize=normalize,
+    permute_br=permute_br,
+    letter_box=((box_size, 0.5) if box_size else None),
+    to_channel_first=True)
+
+  if box_size: img_ltb, shift, ratio = pred
+  else: img_ltb = pred
+
+  dets = utils.detect_frame(
+    model,
+    torch.FloatTensor(img_ltb),
+    obj_thresh=obj_threshold,
+    nms_thresh=iou_threshold,
+    box_correction=((shift, ratio) if box_size else None))
+  if dets is not None:
+    img = cap.make_detection_frame(img, dets, classes)
+  if verbose:
+    print('time elapses: {:.3f} s'.format(time.time()-__start))
+
+  return img
 
 
 class YOLOConvBlock(torch.nn.Module):
