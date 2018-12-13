@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:52:48 2018 Zhijin Li
-## Last update Wed Dec 12 22:24:24 2018 Zhijin Li
+## Last update Thu Dec 13 22:28:02 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -65,6 +65,9 @@ TEST_IMG_DIR     = os.path.join(
 
 
 if __name__ == '__main__':
+
+  if not os.path.exists(YOLOV3_TINY_W):
+    utils.download_yoolov3tiny_weights(YOLOV3_TINY_W)
 
   parser = argparse.ArgumentParser()
   parser.add_argument('--run_test', action='store_true')
@@ -125,7 +128,7 @@ if __name__ == '__main__':
       if dets is not None:
         frame = cap.make_detection_frame(frame, dets, coco_classes)
       cap.print_fps(frame, fps)
-      cv2.imshow('Cam Classifier', frame)
+      cv2.imshow('Cam Detector', frame)
 
       if cv2.waitKey(1) == ord('q'):
         stream.stop()
