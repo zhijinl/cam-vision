@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Thu Dec 13 22:33:45 2018 Zhijin Li
+## Last update Sun Dec 16 19:02:33 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -153,7 +153,10 @@ def detect_color_img(
     nms_thresh=iou_threshold,
     box_correction=((shift, ratio) if box_size else None))
   if dets is not None:
-    img = cap.make_detection_frame(img, dets, classes)
+
+    if not normalize: img = (img*255.0).astype(np.uint8)
+    img = cap.make_detection_frame(
+      np.ascontiguousarray(img, dtype=np.uint8), dets, classes)
   if verbose:
     print('time elapses: {:.3f} s'.format(time.time()-__start))
 

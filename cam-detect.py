@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:52:48 2018 Zhijin Li
-## Last update Thu Dec 13 22:28:02 2018 Zhijin Li
+## Last update Sun Dec 16 18:46:37 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -63,6 +63,8 @@ COCO_CLASSES     = './data/coco/coco.names'
 TEST_IMG_DIR     = os.path.join(
   os.path.dirname(os.path.abspath(__file__)), 'data/darknet-test-images')
 
+DARKNET_BOX_SIZE = 416
+
 
 if __name__ == '__main__':
 
@@ -71,6 +73,8 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
   parser.add_argument('--run_test', action='store_true')
+  parser.add_argument('--use_darknet_boxes', action='store_true')
+
   args = parser.parse_args()
 
   yolo, coco_classes = net.init_detector(
@@ -78,11 +82,24 @@ if __name__ == '__main__':
 
   if args.run_test:
 
-    imgs, paths = utils.load_img_folder(
-      TEST_IMG_DIR,
-      ext='jpg',
-      permute_br=True,
-      normalize=False)
+    if args.use_darknet_boxes:
+
+      imgs, __ = utils.load_img_folder(
+        TEST_IMG_DIR,
+        ext='ltb.raw',
+        permute_br=False,
+        normalize=False,
+        loader=lambda p: np.transpose(
+          np.fromfile(p, dtype=np.float32).reshape(
+            3,DARKNET_BOX_SIZE,DARKNET_BOX_SIZE), [1,2,0]))
+
+    else:
+
+      imgs, __ = utils.load_img_folder(
+        TEST_IMG_DIR,
+        ext='jpg',
+        permute_br=True,
+        normalize=False)
 
     for indx, img in enumerate(imgs):
 
@@ -92,9 +109,9 @@ if __name__ == '__main__':
         classes=coco_classes,
         obj_threshold=OBJ_THRESHOLD,
         iou_threshold=NMS_THRESHOLD,
-        box_size=FRAME_SIZE,
+        box_size=FRAME_SIZE if not args.use_darknet_boxes else None,
         permute_br=False,
-        normalize=True,
+        normalize=False if args.use_darknet_boxes else True,
         verbose=True)
 
       plt.figure()

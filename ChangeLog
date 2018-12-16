@@ -1,5 +1,7 @@
 2018-12-16  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* cam-detect.py: Add test option with darknet letter boxes.
+
 	* lib/utils/utils.py: Refactorize url download.
 
 	* cam-classify.py: Change MobileNet input size.

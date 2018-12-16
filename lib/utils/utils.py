@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Sun Dec 16 18:03:36 2018 Zhijin Li
+## Last update Sun Dec 16 19:02:20 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -224,7 +224,8 @@ def make_predict_inp(
     to_channel_first=False):
   """
 
-  Transform an image for TF prediction mode.
+  Transform an image for prediction mode. Pixel
+  values will be rescaled to between 0 and 1.
 
   Parameters
   ----------
@@ -260,7 +261,7 @@ def make_predict_inp(
   ----------
   np.ndarray
   Tensor with rank 4, to be used for
-  TF model prediction.
+  model prediction.
 
   """
   if target_size:
@@ -466,7 +467,8 @@ def load_img_folder(
     folder,
     ext,
     permute_br=True,
-    normalize=True):
+    normalize=True,
+    loader=None):
   """
 
   Load all images inside given folder.
@@ -488,6 +490,10 @@ def load_img_folder(
   Indicating whether the image pixel value should
   be divided by 255.0.
 
+  loader: function
+  An image loader. Defaults to None, in which
+  OpenCV `imread` is used.
+
   Returns
   ----------
   tuple(list)
@@ -497,7 +503,12 @@ def load_img_folder(
   __imgs = []
   __plst = glob.glob(os.path.join(folder,'*.{}'.format(ext)))
   for __p in __plst:
-    __img = cv2.imread(__p, cv2.IMREAD_UNCHANGED)
+
+    if loader:
+      __img = loader(__p)
+    else:
+      __img = cv2.imread(__p, cv2.IMREAD_UNCHANGED)
+
     if normalize: __img = __img/255.0
     if permute_br:
       __img[:,:,0],__img[:,:,2] = __img[:,:,2],__img[:,:,0].copy()
@@ -709,6 +720,7 @@ def detect_frame(
 
   """
   __detections = model(frame)
+
   __boxes = []
   for __d in __detections:
     __p = __d.permute(0,2,1,3).contiguous().view(__d.shape[2],-1)
