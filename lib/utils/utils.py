@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 20:36:56 2018 Zhijin Li
-## Last update Thu Dec 13 22:29:43 2018 Zhijin Li
+## Last update Sun Dec 16 18:03:36 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -43,6 +43,53 @@ import cv2
 import glob
 import torch
 import numpy as np
+
+
+def download_content(url, dst, proxy=None, verbose=True):
+  """
+
+  Download web content.
+
+  Parameters
+  ----------
+  url: str
+  Content url.
+
+  dst: str
+  Destination for file saving.
+
+  proxy: dict
+  Dictionary with 'https' as key and a string indicating
+  the https proxy as value. Defaults to None, indicating
+  that the env variable https_proxy will be searched. In
+  case of not found, the proxy will be set to empty.
+
+  verbose: bool
+  Controls whether logging should be done on console.
+
+  """
+  import sys
+  import shutil
+  import requests
+  if verbose: requests.packages.urllib3.add_stderr_logger()
+
+  if verbose: print('Downloading from {}'.format(url))
+  if not proxy:
+    try:
+      proxy = dict(https=os.environ['https_proxy'])
+    except:
+      print('https proxy not used.')
+  __res = requests.get(
+    url, verify=False, stream=True, proxies=None)
+  __res.raw.decode_content = True
+  with open(dst, 'wb') as __f:
+    __l, __t = 0, __res.headers.get('content-length')
+    for __chunk in __res.iter_content(chunk_size=4096):
+      if __chunk:
+        __f.write(__chunk)
+        __l += len(__chunk)
+        if verbose: sys.stdout.write('Progress: {}/{}\r'.format(__l, __t))
+    print()
 
 
 def download_yoolov3tiny_weights(dst, proxy=None, verbose=True):
@@ -66,29 +113,8 @@ def download_yoolov3tiny_weights(dst, proxy=None, verbose=True):
   Controls whether logging should be done on console.
 
   """
-  import sys
-  import shutil
-  import requests
-  if verbose: requests.packages.urllib3.add_stderr_logger()
-
   __url = "https://pjreddie.com/media/files/yolov3-tiny.weights"
-  if verbose: print('Downloading weights from {}'.format(__url))
-  if not proxy:
-    try:
-      proxy = dict(https=os.environ['https_proxy'])
-    except:
-      print('https proxy not used.')
-  __res = requests.get(
-    __url, verify=False, stream=True, proxies=None)
-  __res.raw.decode_content = True
-  with open(dst, 'wb') as __f:
-    __l, __t = 0, __res.headers.get('content-length')
-    for __chunk in __res.iter_content(chunk_size=4096):
-      if __chunk:
-        __f.write(__chunk)
-        __l += len(__chunk)
-        if verbose: sys.stdout.write('Progress: {}/{}\r'.format(__l, __t))
-    print()
+  download_content(__url, dst, proxy, verbose)
 
 
 def print_mat(mat, width=10, prec=4):
