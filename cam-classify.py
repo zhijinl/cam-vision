@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sun Oct 28 15:09:53 2018 Zhijin Li
-## Last update Wed Dec 12 21:13:36 2018 Zhijin Li
+## Last update Sun Dec 16 16:59:25 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -53,7 +53,8 @@ TARGET_SIZE      = None
 POOLING_TYPE     = 'global_avg'
 
 VERBOSE          = False
-FRAME_SIZE       = 366
+FRAME_SIZE       = 224
+RESIZE_SIZE       = 366
 SKIP_FRAMES      = 60
 IMAGENET_TXT     =  './data/imagenet/imagenet_dict.npy'
 
@@ -67,8 +68,8 @@ if __name__ == '__main__':
 
   fps = 0
   counter = 0
-  top_scrs = [0.0]*TOP_CLASSES
-  top_labs = ['none']*TOP_CLASSES
+  top_scrs = [0.0] * TOP_CLASSES
+  top_labs = ['none'] * TOP_CLASSES
   label_dict = np.load(IMAGENET_TXT).item()
 
   while True:
@@ -88,7 +89,9 @@ if __name__ == '__main__':
         verbose=VERBOSE)
 
     cap.print_fps(frame, fps)
-    frame = cap.make_pred_frame(frame, top_labs, top_scrs)
+    frame = cap.make_pred_frame(
+      cv2.resize(frame, dsize=(RESIZE_SIZE, RESIZE_SIZE)),
+      top_labs, top_scrs)
 
     cv2.imshow('Cam Classifier', frame)
 

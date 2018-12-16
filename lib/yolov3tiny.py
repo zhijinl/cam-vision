@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Nov 10 23:21:29 2018 Zhijin Li
-## Last update Wed Dec 12 22:01:24 2018 Zhijin Li
+## Last update Thu Dec 13 22:33:45 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -98,8 +98,7 @@ def detect_color_img(
   The YOLO detector model.
 
   img: np.array
-  The input OpenCV image. Assumed to be BGR ordering
-  with pixel value between 0 and 255.
+  The input 3-channel image.
 
   class: list
   List of object classes.
