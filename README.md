@@ -53,8 +53,8 @@ Classifiy object from real-time webcam feed.
 <img
     src = "./data/img/cam-classify-sample1.png"
     alt-text = "cam-classify example 1"
-    width = "300"
-    height = "330"
+    width = "600"
+    height = "660"
     />
 <img
     src = "./data/img/cam-classify-sample2.png"
@@ -90,8 +90,8 @@ Detect objects from real-time webcam feed.
 <img
     src = "./data/img/cam-detect-sample.png"
     alt-text = "cam-classify example 1"
-    width = "300"
-    height = "330"
+    width = "600"
+    height = "660"
     />
 
 This application implements
