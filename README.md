@@ -63,8 +63,10 @@ Classifiy object from real-time webcam feed.
     height = "330"
     />
 
-This application uses `MobileNet` from the official
-`tf.keras.applications` with weights pre-trained on `ImageNet`.
+This application uses
+[`MobileNet`](https://arxiv.org/pdf/1704.04861.pdf) from the official
+[`tf.keras.applications`](https://keras.io/applications/#mobilenet)
+with weights pre-trained on `ImageNet`.
 
 ### Usage
 

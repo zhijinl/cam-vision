@@ -1,6 +1,6 @@
 2018-12-17  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
-	* README.md: Update documentation.
+	* README.md: Update documentation. Add documentation images.
 
 	* lib/utils/capture.py: Fix video cam demo.
 
