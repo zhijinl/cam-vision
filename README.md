@@ -59,8 +59,8 @@ Classifiy object from real-time webcam feed.
 <img
     src = "./data/img/cam-classify-sample2.png"
     alt-text = "cam-classify example 2"
-    width = "300"
-    height = "330"
+    width = "600"
+    height = "660"
     />
 
 This application uses
