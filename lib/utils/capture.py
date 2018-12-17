@@ -34,7 +34,7 @@
 ## E-mail:   <jonathan.zj.lee@gmail.com>
 ##
 ## Started on  Sat Oct 13 00:05:50 2018 Zhijin Li
-## Last update Sun Dec 16 18:48:52 2018 Zhijin Li
+## Last update Mon Dec 17 21:55:26 2018 Zhijin Li
 ## ---------------------------------------------------------------------------
 
 
@@ -365,14 +365,13 @@ def make_detection_frame(
 if __name__ == '__main__':
 
   stream = FastVideoStream(0).read_frames()
-  print('frame rate: {}'.format(cv2.CAP_PROP_FPS))
 
   fps = 0
   while True:
     __start = time.time()
 
     frame = stream.get_frame()
-    frame = trim_frame_square(frame, .3, 0.5625)
+    frame = trim_resize_frame_square(frame, 366)
 
     print_fps(frame, fps)
     cv2.imshow('Video Cam', frame)
