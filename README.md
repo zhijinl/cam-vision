@@ -53,13 +53,13 @@ Classifiy object from real-time webcam feed.
 <img
     src = "./data/img/cam-classify-sample1.png"
     alt-text = "cam-classify example 1"
-    width = "00"
+    width = "400"
     height = "440"
     />
 <img
     src = "./data/img/cam-classify-sample2.png"
     alt-text = "cam-classify example 2"
-    width = "600"
+    width = "400"
     height = "440"
     />
 
