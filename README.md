@@ -53,14 +53,14 @@ Classifiy object from real-time webcam feed.
 <img
     src = "./data/img/cam-classify-sample1.png"
     alt-text = "cam-classify example 1"
-    width = "600"
-    height = "660"
+    width = "00"
+    height = "440"
     />
 <img
     src = "./data/img/cam-classify-sample2.png"
     alt-text = "cam-classify example 2"
     width = "600"
-    height = "660"
+    height = "440"
     />
 
 This application uses
@@ -72,7 +72,7 @@ with weights pre-trained on `ImageNet`.
 
 Run
 
-      ./cam-classify
+      ./cam-classify.py
 
 in a terminal.
 
@@ -90,8 +90,8 @@ Detect objects from real-time webcam feed.
 <img
     src = "./data/img/cam-detect-sample.png"
     alt-text = "cam-classify example 1"
-    width = "600"
-    height = "660"
+    width = "400"
+    height = "440"
     />
 
 This application implements
@@ -99,16 +99,16 @@ This application implements
 architecture in `pytorch` for object detection. The model weights was downloaded
 from the official [`darknet`
 website](https://pjreddie.com/darknet/yolo/). An effort was made to
-exactly replicate the result of the original `darknet` implementation,
+replicate the result of the original `darknet` implementation,
 with maximum absolute difference between detection feature-maps from
 two implementation bounded by $10^{-4}$, when the darknet
-pree-processed images are used as input.
+pre-processed images are used as input.
 
 ### Usage
 
 Run
 
-      ./cam-detect <--run_test> <--use_darknet_boxes>
+      ./cam-detect.py <--run_test> <--use_darknet_boxes>
 
 in a terminal.
 
