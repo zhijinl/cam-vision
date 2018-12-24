@@ -1,5 +1,7 @@
 2018-12-24  Zhijin Li  <jonathan.zj.lee@gmail.com>
 
+	* README.md: Refine documentation.
+
 	* tool/darknet/make_letter_boxes.c: Provide utility program for
 	darknet letter box transform.
 

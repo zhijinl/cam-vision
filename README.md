@@ -137,3 +137,5 @@ in a terminal.
 - `numpy`
 - `torch`, `torchvision`
 - `requests`
+- [`darknet`](https://pjreddie.com/darknet/install/) compiled &
+  installed (only for `make_letter_boxes` utility)
