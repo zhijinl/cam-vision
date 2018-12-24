@@ -72,7 +72,7 @@ with weights pre-trained on `ImageNet`.
 
 Run
 
-      ./cam-classify.py
+    ./cam-classify.py
 
 in a terminal.
 
@@ -108,7 +108,7 @@ pre-processed images are used as input.
 
 Run
 
-      ./cam-detect.py <--run_test> <--use_darknet_boxes>
+    ./cam-detect.py <--run_test> <--use_darknet_boxes>
 
 in a terminal.
 
@@ -117,7 +117,19 @@ in a terminal.
   display the results.
 - `--use_darknet_boxes` is an optional argument and can be added in
   additiona to `--run_test`. When specified, the application will use
-  `darknet` pre-processed images as input.
+  `darknet` pre-processed (letter box transformed) images as input. An
+  utility program `make_letter_boxes` is provided under `tool/darknet`
+  to transform color images to Darknet style letter boxes. To use this
+  utility, go to `tool/darknet`, run
+
+        make
+
+  to compile the program. Then run
+
+        ./make_letter_boxes ../../data/darknet-test-images/ jpg
+
+  The program will save letter box transformed images under the
+  directory `data/darknet-test-images`.
 
 ### Dependencies
 

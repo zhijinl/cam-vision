@@ -1,6 +1,10 @@
 
 # Temporary folder
 tmp
+*.html
+*.raw
+*.weights
+*.list
 
 # Python compiled
 __pycache__
@@ -34,6 +38,7 @@ __pycache__
 *.out
 *.app
 *.o
+make_letter_boxes
 
 # Temp files
 /autom4te.cache
