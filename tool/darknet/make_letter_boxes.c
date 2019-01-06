@@ -28,16 +28,16 @@
  */
 
 /*
-** ---------------------------------------------------------------------------
-**
-** File: make_darknet_letter_boxes.c for Cam-Vision
-**
-** Created by Zhijin Li
-** E-mail:   <jonathan.zj.lee@gmail.com>
-**
-** Started on  Sun Dec 23 23:11:49 2018 Zhijin Li
-** Last update Mon Dec 24 00:53:06 2018 Zhijin Li
-** ---------------------------------------------------------------------------
+ * ---------------------------------------------------------------------------
+ *
+ * File: make_darknet_letter_boxes.c for Cam-Vision
+ *
+ * Created by Zhijin Li
+ * E-mail:   <jonathan.zj.lee@gmail.com>
+ *
+ * Started on  Sun Dec 23 23:11:49 2018 Zhijin Li
+ * Last update Fri Dec 28 18:21:46 2018 Zhijin Li
+ * ---------------------------------------------------------------------------
 */
 
 

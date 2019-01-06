@@ -15,6 +15,9 @@ run at at least around 30 frames per second (fps). Content of this
 repo is detailed Hereunder.
 
 
+----------
+
+
 ## Repo structure
 
 - `cam-*.py` files refer to different applications. It can be run in a
@@ -28,6 +31,9 @@ repo is detailed Hereunder.
 - `AUTHORS`
 - `LICENSE`
 - `README.md`
+
+
+----------
 
 
 ## Camera capture utilities
@@ -44,6 +50,9 @@ application-specific frame modifications.
 
 - `opencv-python`
 - `numpy`
+
+
+----------
 
 
 ## Object classification with `cam-classify`
@@ -81,6 +90,9 @@ in a terminal.
 - `opencv-python`
 - `numpy`
 - `tensorflow`
+
+
+----------
 
 
 ## Object detection with `cam-detect`
@@ -139,3 +151,15 @@ in a terminal.
 - `requests`
 - [`darknet`](https://pjreddie.com/darknet/install/) compiled &
   installed (only for `make_letter_boxes` utility)
+
+
+----------
+
+
+### Face-switching with `cam-switch`
+
+
+----------
+
+
+### Pose detection with `cam-pose`
